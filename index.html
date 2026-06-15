@@ -548,16 +548,55 @@ function showOk(icon, name, plate, timeStr){ document.getElementById('okIcon').t
 function closeOk(){ document.getElementById('okOverlay').classList.remove('on'); }
 
 // ═══ API CALLS ══════════════════════════════════════
-function api(params){
-  if(!G.url){ showT('請先設置 Web App URL',false); return Promise.reject('No URL'); }
+// ═══ API — 三重備用：直接fetch → CORS代理 → JSONP ════════
+async function api(params){
+  if(!G.url){ showT('請先設置 Web App URL',false); return null; }
+  const qs = new URLSearchParams(params).toString();
+  const directUrl = G.url + '?' + qs;
+
+  // 方法1：直接 fetch（Chrome 有效）
+  try {
+    const r = await Promise.race([
+      fetch(directUrl, {method:'GET', cache:'no-cache'}),
+      new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),8000))
+    ]);
+    if(r.ok){ const d=await r.json(); if(d!==undefined) return d; }
+  } catch(e){ /* 嘗試下一個方法 */ }
+
+  // 方法2：CORS 代理（Safari iPhone 有效）
+  const proxies = [
+    'https://corsproxy.io/?',
+    'https://api.allorigins.win/raw?url=',
+  ];
+  for(const proxy of proxies){
+    try {
+      const proxyUrl = proxy + encodeURIComponent(directUrl);
+      const r = await Promise.race([
+        fetch(proxyUrl, {cache:'no-cache'}),
+        new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),10000))
+      ]);
+      if(r.ok){
+        const text = await r.text();
+        const d = JSON.parse(text);
+        if(d!==undefined) return d;
+      }
+    } catch(e){ /* 嘗試下一個 */ }
+  }
+
+  // 方法3：JSONP（最後備用）
   return new Promise((resolve,reject)=>{
-    const cb='cb_'+Date.now();
+    const cb='cb_'+(Date.now()^Math.random()*99999|0);
     const s=document.createElement('script');
     const p=new URLSearchParams(params);
     p.set('callback',cb);
     s.src=G.url+'?'+p.toString();
-    s.onerror=()=>{delete window[cb];document.body.removeChild(s);reject(new Error('Network error'));};
-    window[cb]=(data)=>{delete window[cb];document.body.removeChild(s);resolve(data);};
+    const t=setTimeout(()=>{
+      delete window[cb];
+      if(s.parentNode)s.parentNode.removeChild(s);
+      reject(new Error('所有連接方式均失敗，請檢查網絡或 Apps Script 設置'));
+    },12000);
+    s.onerror=()=>{clearTimeout(t);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s);reject(new Error('腳本載入失敗'));};
+    window[cb]=(d)=>{clearTimeout(t);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s);resolve(d);};
     document.body.appendChild(s);
   });
 }
