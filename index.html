@@ -548,12 +548,18 @@ function showOk(icon, name, plate, timeStr){ document.getElementById('okIcon').t
 function closeOk(){ document.getElementById('okOverlay').classList.remove('on'); }
 
 // ═══ API CALLS ══════════════════════════════════════
-async function api(params){
-  if(!G.url){ showT('請先設置 Web App URL',false); return null; }
-  const url = G.url + '?' + new URLSearchParams(params).toString();
-  const r = await fetch(url);
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  return r.json();
+function api(params){
+  if(!G.url){ showT('請先設置 Web App URL',false); return Promise.reject('No URL'); }
+  return new Promise((resolve,reject)=>{
+    const cb='cb_'+Date.now();
+    const s=document.createElement('script');
+    const p=new URLSearchParams(params);
+    p.set('callback',cb);
+    s.src=G.url+'?'+p.toString();
+    s.onerror=()=>{delete window[cb];document.body.removeChild(s);reject(new Error('Network error'));};
+    window[cb]=(data)=>{delete window[cb];document.body.removeChild(s);resolve(data);};
+    document.body.appendChild(s);
+  });
 }
 
 async function doSync(){
