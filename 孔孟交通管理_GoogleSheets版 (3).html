@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="孔孟交通">
+<meta name="theme-color" content="#0F2044">
+<title>孔孟學院 交通管理</title>
+<style>
+:root{
+  --navy:#0F2044;--blue:#1B5FBF;--blue-l:#E8F1FB;--blue-m:#2D7DD2;
+  --gold:#C9973A;--gold-l:#FBF3E0;
+  --green:#1B8A55;--green-l:#E4F5EC;
+  --red:#C0392B;--red-l:#FCECEA;
+  --amber:#B87820;--amber-l:#FBF0DC;
+  --purple:#6B3FA0;--purple-l:#F0EAF9;
+  --text:#0F1E35;--t2:#4A5568;--t3:#8896A8;
+  --brd:#D5DDE8;--surf:#F4F7FB;--wht:#fff;
+  --r:10px;--rl:14px;
+  --sh:0 1px 4px rgba(15,32,68,.08);--shm:0 6px 24px rgba(15,32,68,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,'PingFang TC','Noto Sans TC',sans-serif;background:var(--surf);color:var(--text);min-height:100vh;font-size:15px}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--navy);padding:0 14px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:200;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.t-logo{display:flex;align-items:center;gap:10px}
+.t-em{width:34px;height:34px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--navy)}
+.t-name{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
+.t-sub{font-size:10px;color:rgba(255,255,255,.5)}
+.t-clk{font-size:11px;color:rgba(255,255,255,.55);text-align:right;line-height:1.6}
+
+/* ── SYNC BAR ── */
+.sync-bar{background:var(--navy);border-top:1px solid rgba(255,255,255,.1);padding:6px 14px;display:flex;align-items:center;gap:8px;position:sticky;top:56px;z-index:199}
+.s-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;transition:background .3s}
+.s-dot.ok{background:var(--green)}.s-dot.err{background:var(--red)}.s-dot.spin{background:var(--blue-m);animation:blink .6s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.s-txt{font-size:11px;color:rgba(255,255,255,.7);flex:1}
+.s-btn{font-size:11px;color:var(--gold);cursor:pointer;font-weight:600;border:none;background:transparent;font-family:inherit;padding:0}
+
+/* ── TABS ── */
+.tabbar{background:var(--wht);border-bottom:1px solid var(--brd);display:flex;overflow-x:auto;scrollbar-width:none;position:sticky;top:91px;z-index:198}
+.tabbar::-webkit-scrollbar{display:none}
+.tb{padding:0 16px;height:44px;font-size:13px;font-weight:500;color:var(--t2);border:none;background:transparent;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit}
+.tb.on{color:var(--blue);border-bottom-color:var(--blue)}
+
+.pnl{display:none;padding:14px}.pnl.on{display:block}
+
+/* ── SETUP SCREEN ── */
+.setup-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:2rem 1rem;text-align:center}
+.setup-icon{font-size:48px;margin-bottom:1rem}
+.setup-title{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.setup-sub{font-size:13px;color:var(--t2);margin-bottom:1.5rem;line-height:1.6}
+.setup-inp{width:100%;max-width:420px;padding:12px;border:1.5px solid var(--brd);border-radius:var(--r);font-size:13px;font-family:inherit;margin-bottom:10px;color:var(--text);background:var(--wht)}
+.setup-inp:focus{outline:none;border-color:var(--blue)}
+
+/* ── STATS ── */
+.sg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1rem}
+.sc{background:var(--wht);border-radius:var(--r);padding:12px 6px;text-align:center;border:1px solid var(--brd);box-shadow:var(--sh)}
+.sn{font-size:22px;font-weight:700;line-height:1}
+.sl{font-size:10px;color:var(--t3);margin-top:3px;line-height:1.3}
+.c-b{color:var(--blue)}.c-g{color:var(--green)}.c-a{color:var(--amber)}.c-r{color:var(--red)}
+
+/* ── CARDS ── */
+.card{background:var(--wht);border-radius:var(--rl);border:1px solid var(--brd);box-shadow:var(--sh);margin-bottom:1rem;overflow:hidden}
+.ch{padding:11px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between}
+.ct{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px}
+.cb{padding:14px}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:9px 16px;border-radius:var(--r);border:1px solid var(--brd);background:var(--wht);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--text);transition:opacity .12s,transform .1s;white-space:nowrap}
+.btn:active{transform:scale(.97);opacity:.85}
+.btn-p{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-g{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-r{background:var(--red);color:#fff;border-color:var(--red)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-fw{width:100%}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── INPUTS ── */
+.inp{width:100%;padding:10px 12px;border:1px solid var(--brd);border-radius:var(--r);font-size:14px;font-family:inherit;color:var(--text);background:var(--wht)}
+.inp:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(27,95,191,.12)}
+.inp-pl{font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:2px;font-size:18px;font-weight:700;text-align:center}
+.irow{display:flex;gap:8px}
+.ig{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.il{font-size:12px;font-weight:500;color:var(--t2)}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.b-ok{background:var(--green-l);color:#0E5C34}
+.b-w{background:var(--red-l);color:#7B1E17}
+.b-p{background:var(--amber-l);color:#6B4710}
+.b-i{background:var(--blue-l);color:#0D3E82}
+
+/* ── METHOD TOGGLE ── */
+.mrow{display:flex;gap:5px;margin-bottom:12px}
+.mb{flex:1;padding:9px 4px;border-radius:var(--r);border:1.5px solid var(--brd);background:var(--wht);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--t2);display:flex;align-items:center;justify-content:center;gap:4px}
+.mb.on{border-color:var(--blue);background:var(--blue-l);color:var(--blue)}
+.ms{display:none}.ms.on{display:block}
+
+/* ── MIC ── */
+.mic-wrap{display:flex;flex-direction:column;align-items:center;padding:1.2rem 1rem;gap:12px}
+.mic-btn{width:80px;height:80px;border-radius:50%;border:none;cursor:pointer;background:var(--blue);display:flex;align-items:center;justify-content:center;transition:background .2s,transform .1s}
+.mic-btn:active{transform:scale(.95)}
+.mic-btn.on{background:var(--red);animation:pulse 1.2s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(192,57,43,.5)}70%{box-shadow:0 0 0 20px rgba(192,57,43,0)}100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}}
+.mic-lbl{font-size:13px;font-weight:500;color:var(--t2);text-align:center}
+.mic-hint{font-size:11px;color:var(--t3);text-align:center}
+
+.tr-box{background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:11px 13px;min-height:46px;display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.wav{display:flex;align-items:center;gap:3px;flex-shrink:0;opacity:0;transition:opacity .2s}
+.wav.on{opacity:1}
+.wb{width:3px;border-radius:2px;background:var(--red);animation:wv .8s ease-in-out infinite}
+.wb:nth-child(1){height:8px}.wb:nth-child(2){height:14px;animation-delay:.1s}.wb:nth-child(3){height:20px;animation-delay:.2s}.wb:nth-child(4){height:12px;animation-delay:.15s}.wb:nth-child(5){height:7px;animation-delay:.25s}
+@keyframes wv{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1.2)}}
+.tr-txt{font-size:13px;color:var(--t2);flex:1;font-style:italic}
+.tr-txt.has{font-style:normal;color:var(--text);font-weight:500}
+
+.lang-row{display:flex;gap:4px;margin-bottom:12px}
+.lb{flex:1;padding:6px;border-radius:var(--r);border:1px solid var(--brd);background:var(--wht);font-size:12px;cursor:pointer;font-family:inherit;color:var(--t2);text-align:center}
+.lb.on{background:var(--purple);color:#fff;border-color:var(--purple)}
+
+/* ── RESULT BOX ── */
+.platebox{font-family:'Courier New',monospace;font-size:24px;font-weight:700;letter-spacing:5px;text-align:center;padding:14px;background:var(--gold-l);border:2px solid var(--gold);border-radius:var(--r);color:var(--navy);margin-bottom:12px}
+.rbox{background:var(--surf);border-radius:var(--rl);padding:14px;margin-top:10px;border:1px solid var(--brd);display:none}
+.rr{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}.rr:last-child{margin-bottom:0}
+.rl{font-size:12px;color:var(--t3);width:58px;flex-shrink:0;padding-top:1px}
+.rv{font-size:13px;font-weight:500;color:var(--text);flex:1;line-height:1.4}
+
+/* ── UPDATING OVERLAY ── */
+.upd-overlay{position:fixed;inset:0;background:rgba(15,32,68,.6);z-index:9000;display:none;align-items:center;justify-content:center}
+.upd-overlay.on{display:flex}
+.upd-box{background:var(--wht);border-radius:var(--rl);padding:2rem 2.5rem;text-align:center;box-shadow:var(--shm);min-width:220px}
+.upd-spin{width:40px;height:40px;border:3px solid var(--blue-l);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.upd-txt{font-size:14px;font-weight:500;color:var(--text)}
+.upd-sub{font-size:12px;color:var(--t3);margin-top:4px}
+
+/* ── SUCCESS OVERLAY ── */
+.ok-overlay{position:fixed;inset:0;background:rgba(15,32,68,.6);z-index:9001;display:none;align-items:center;justify-content:center}
+.ok-overlay.on{display:flex}
+.ok-box{background:var(--wht);border-radius:var(--rl);padding:2rem;text-align:center;box-shadow:var(--shm);min-width:260px;animation:pop .25s ease}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+.ok-icon{font-size:48px;margin-bottom:10px}
+.ok-name{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.ok-plate{font-family:'Courier New',monospace;font-size:16px;color:var(--t2);margin-bottom:4px}
+.ok-time{font-size:13px;color:var(--t3)}
+
+/* ── TABLE ── */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+th{text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:var(--t3);border-bottom:1px solid var(--brd);background:var(--surf);text-transform:uppercase;letter-spacing:.4px}
+td{padding:9px 10px;border-bottom:1px solid var(--brd);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--blue-l)}
+.tdp{font-family:'Courier New',monospace;font-weight:700;font-size:12px;color:var(--navy)}
+
+.divr{display:flex;align-items:center;gap:9px;margin:12px 0;color:var(--t3);font-size:12px}
+.divr::before,.divr::after{content:'';flex:1;height:1px;background:var(--brd)}
+
+.fr{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.pill{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--brd);background:var(--wht);cursor:pointer;color:var(--t2);font-family:inherit}
+.pill.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.bbar{height:20px;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:11px;font-weight:700;color:#fff;transition:width .8s ease}
+
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:30px;font-size:13px;font-weight:600;color:#fff;z-index:9999;display:none;white-space:nowrap;box-shadow:var(--shm);animation:tin .2s ease;max-width:90vw;text-align:center}
+@keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+.sum-row{padding:10px 14px;background:var(--surf);border-top:1px solid var(--brd);font-size:12px;color:var(--t2);display:flex;gap:12px;flex-wrap:wrap}
+
+@media(max-width:380px){.sn{font-size:19px}.sl{font-size:9px}.tb{padding:0 11px;font-size:12px}}
+</style>
+</head>
+<body>
+
+<!-- UPDATING OVERLAY -->
+<div class="upd-overlay" id="updOverlay">
+  <div class="upd-box">
+    <div class="upd-spin"></div>
+    <div class="upd-txt" id="updTxt">更新中...</div>
+    <div class="upd-sub">正在寫入 Google Sheets</div>
+  </div>
+</div>
+
+<!-- SUCCESS OVERLAY -->
+<div class="ok-overlay" id="okOverlay" onclick="closeOk()">
+  <div class="ok-box">
+    <div class="ok-icon" id="okIcon">✅</div>
+    <div class="ok-name" id="okName">—</div>
+    <div class="ok-plate" id="okPlate">—</div>
+    <div class="ok-time" id="okTime">—</div>
+    <div style="margin-top:14px;font-size:12px;color:var(--t3)">點任意處繼續</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="t-logo">
+    <div class="t-em">孔孟</div>
+    <div>
+      <div class="t-name">英雄山莊交通管理</div>
+      <div class="t-sub">即時同步 Google Sheets</div>
+    </div>
+  </div>
+  <div class="t-clk" id="clk"></div>
+</div>
+
+<!-- SYNC STATUS BAR -->
+<div class="sync-bar">
+  <div class="s-dot" id="sDot"></div>
+  <span class="s-txt" id="sTxt">尚未設置 Web App URL</span>
+  <button class="s-btn" onclick="doSync()">同步</button>
+</div>
+
+<!-- TABS -->
+<div class="tabbar">
+  <button class="tb on" onclick="ST('dash',this)">概覽</button>
+  <button class="tb" onclick="ST('ci',this)">入班</button>
+  <button class="tb" onclick="ST('co',this)">出班</button>
+  <button class="tb" onclick="ST('list',this)">名單</button>
+  <button class="tb" onclick="ST('cfg',this)">設置</button>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div id="tab-dash" class="pnl on">
+  <div class="sg">
+    <div class="sc"><div class="sn c-b" id="sTot">—</div><div class="sl">總車輛</div></div>
+    <div class="sc"><div class="sn c-g" id="sArr">—</div><div class="sl">已到達</div></div>
+    <div class="sc"><div class="sn c-a" id="sPend">—</div><div class="sl">未到達</div></div>
+    <div class="sc"><div class="sn c-r" id="sOut">—</div><div class="sl">已出班</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="ct">入班進度</span><span id="pctLbl" style="font-size:12px;color:var(--t3)">—</span></div>
+    <div style="padding:12px 14px">
+      <div style="background:var(--surf);border-radius:6px;height:20px;border:1px solid var(--brd);overflow:hidden">
+        <div class="bbar" id="pctBar" style="width:0%;background:var(--green)">0%</div>
+      </div>
+      <p id="lastSync" style="font-size:11px;color:var(--t3);margin-top:6px">尚未同步</p>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
+    <div class="card" style="margin-bottom:0">
+      <div class="ch"><span class="ct">最近動態</span></div>
+      <div id="recAct"><div style="padding:1rem;text-align:center;font-size:12px;color:var(--t3)">同步後顯示</div></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="ch"><span class="ct">未到達</span><span id="pendCnt" style="font-size:11px;color:var(--t3)">—</span></div>
+      <div id="pendList"><div style="padding:1rem;text-align:center;font-size:12px;color:var(--t3)">同步後顯示</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CHECK IN ══ -->
+<div id="tab-ci" class="pnl">
+  <div class="card">
+    <div class="ch"><span class="ct">入班登記</span></div>
+    <div class="cb">
+      <!-- Method -->
+      <div class="mrow">
+        <button class="mb on" id="mVI" onclick="setM('i','v')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>語音
+        </button>
+        <button class="mb" id="mCI" onclick="setM('i','c')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>拍照
+        </button>
+        <button class="mb" id="mMI" onclick="setM('i','m')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>手動
+        </button>
+      </div>
+
+      <!-- VOICE -->
+      <div class="ms on" id="si-v">
+        <div class="lang-row" id="lgI">
+          <button class="lb on" onclick="setL('i','ms-MY',this)">馬來語</button>
+          <button class="lb" onclick="setL('i','en-US',this)">English</button>
+          <button class="lb" onclick="setL('i','zh-TW',this)">中文</button>
+        </div>
+        <div style="background:var(--purple-l);border:1px solid #C4A9E0;border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--purple)">
+          🗣 說出車牌：<b>V D P 3 0 7 4</b>、<b>W K X 7 8 1 1</b>、<b>Whiskey Foxtrot Tango 4 7 8 9</b>
+        </div>
+        <div class="mic-wrap">
+          <button class="mic-btn" id="micI" onclick="togV('i')">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="white"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="8" y1="23" x2="16" y2="23" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <div class="mic-lbl" id="mLI">點一下說出車牌</div>
+          <div class="mic-hint">再點停止 · 自動比對 Sheets 名單</div>
+        </div>
+        <div class="tr-box">
+          <div class="wav" id="wavI"><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div></div>
+          <div class="tr-txt" id="trI">等待語音...</div>
+        </div>
+      </div>
+
+      <!-- CAMERA -->
+      <div class="ms" id="si-c">
+        <div style="border:2px dashed var(--brd);border-radius:var(--rl);padding:1.5rem;text-align:center;cursor:pointer;background:var(--surf);margin-bottom:10px" onclick="document.getElementById('camI').click()">
+          <div style="font-size:30px;margin-bottom:8px">📷</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:3px">拍攝車牌</div>
+          <div style="font-size:11px;color:var(--t3)">Tesseract OCR 本地識別 · 免費</div>
+        </div>
+        <input type="file" id="camI" accept="image/*" capture="environment" style="display:none" onchange="capImg(this,'i')">
+        <img id="pvI" style="width:100%;max-height:130px;object-fit:cover;border-radius:var(--r);margin-bottom:8px;display:none;border:1px solid var(--brd)">
+        <div id="ocrBox" style="background:var(--blue-l);border:1px solid #B5D0EE;border-radius:var(--r);padding:10px 12px;display:none">
+          <div id="ocrMsg" style="font-size:12px;color:var(--blue);margin-bottom:6px">識別中...</div>
+          <div style="height:4px;background:rgba(27,95,191,.15);border-radius:2px;overflow:hidden"><div id="ocrBar" style="height:4px;background:var(--blue);border-radius:2px;transition:width .3s;width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- MANUAL -->
+      <div class="ms" id="si-m">
+        <div class="irow">
+          <input class="inp inp-pl" id="pI" placeholder="車牌號碼" oninput="this.value=this.value.toUpperCase()">
+          <button class="btn btn-p" onclick="lkup('i')">查詢</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recognized Plate -->
+  <div id="pdI" style="display:none;margin-bottom:10px">
+    <div class="platebox" id="pbI">—</div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="btn btn-sm" onclick="editP('i')">✏️ 修正</button>
+      <button class="btn btn-p btn-sm" onclick="lkupD('i')">確認查詢</button>
+    </div>
+  </div>
+  <div class="rbox" id="resI"></div>
+</div>
+
+<!-- ══ CHECK OUT ══ -->
+<div id="tab-co" class="pnl">
+  <div class="card">
+    <div class="ch"><span class="ct">出班登記</span></div>
+    <div class="cb">
+      <div class="mrow">
+        <button class="mb on" id="mVO" onclick="setM('o','v')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>語音
+        </button>
+        <button class="mb" id="mCO" onclick="setM('o','c')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>拍照
+        </button>
+        <button class="mb" id="mMO" onclick="setM('o','m')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>手動
+        </button>
+      </div>
+      <div class="ms on" id="so-v">
+        <div class="lang-row" id="lgO">
+          <button class="lb on" onclick="setL('o','ms-MY',this)">馬來語</button>
+          <button class="lb" onclick="setL('o','en-US',this)">English</button>
+          <button class="lb" onclick="setL('o','zh-TW',this)">中文</button>
+        </div>
+        <div class="mic-wrap">
+          <button class="mic-btn" id="micO" onclick="togV('o')">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="white"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="8" y1="23" x2="16" y2="23" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <div class="mic-lbl" id="mLO">點一下說出車牌</div>
+          <div class="mic-hint">再點停止 · 自動出班</div>
+        </div>
+        <div class="tr-box">
+          <div class="wav" id="wavO"><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div></div>
+          <div class="tr-txt" id="trO">等待語音...</div>
+        </div>
+      </div>
+      <div class="ms" id="so-c">
+        <div style="border:2px dashed var(--brd);border-radius:var(--rl);padding:1.5rem;text-align:center;cursor:pointer;background:var(--surf);margin-bottom:10px" onclick="document.getElementById('camO').click()">
+          <div style="font-size:30px;margin-bottom:8px">📷</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:3px">拍攝出班車牌</div>
+          <div style="font-size:11px;color:var(--t3)">自動記錄離開時間</div>
+        </div>
+        <input type="file" id="camO" accept="image/*" capture="environment" style="display:none" onchange="capImg(this,'o')">
+        <img id="pvO" style="width:100%;max-height:130px;object-fit:cover;border-radius:var(--r);margin-bottom:8px;display:none;border:1px solid var(--brd)">
+      </div>
+      <div class="ms" id="so-m">
+        <div class="irow">
+          <input class="inp inp-pl" id="pO" placeholder="車牌號碼" oninput="this.value=this.value.toUpperCase()">
+          <button class="btn btn-r" onclick="lkup('o')">查詢出班</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="pdO" style="display:none;margin-bottom:10px">
+    <div class="platebox" id="pbO">—</div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="btn btn-sm" onclick="editP('o')">✏️ 修正</button>
+      <button class="btn btn-r btn-sm" onclick="lkupD('o')">確認查詢</button>
+    </div>
+  </div>
+  <div class="rbox" id="resO"></div>
+
+  <div class="card">
+    <div class="ch"><span class="ct">目前在場</span></div>
+    <div class="tw"><table>
+      <thead><tr><th style="width:28%">車牌</th><th style="width:24%">司機</th><th style="width:20%">理經</th><th style="width:15%">入班</th><th style="width:13%">操作</th></tr></thead>
+      <tbody id="inFTb"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══ LIST ══ -->
+<div id="tab-list" class="pnl">
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <input class="inp" id="srch" placeholder="車牌、司機、理經..." oninput="doSrch(this.value)" style="flex:1;font-size:13px">
+    <button class="btn btn-sm btn-p" onclick="doSync()">↻ 刷新</button>
+  </div>
+  <div class="fr">
+    <button class="pill on" onclick="setF('all',this)">全部</button>
+    <button class="pill" onclick="setF('in',this)">已到達</button>
+    <button class="pill" onclick="setF('pend',this)">未到達</button>
+    <button class="pill" onclick="setF('out',this)">已出班</button>
+  </div>
+  <div class="card" style="margin-bottom:0;padding:0">
+    <div class="tw"><table>
+      <thead><tr><th style="width:22%">車牌</th><th style="width:20%">司機</th><th style="width:18%">理經</th><th style="width:9%">人</th><th style="width:18%">狀態</th><th style="width:13%">時間</th></tr></thead>
+      <tbody id="listTb"></tbody>
+    </table></div>
+    <div class="sum-row">共 <b id="sumN">—</b> 輛 · <b id="sumP">—</b> 人</div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div id="tab-cfg" class="pnl">
+  <div class="card">
+    <div class="ch"><span class="ct">Google Apps Script 連接</span></div>
+    <div class="cb">
+      <div class="ig">
+        <div class="il">Web App URL（Apps Script 部署後複製貼入）</div>
+        <input class="inp" id="cfgUrl" placeholder="https://script.google.com/macros/s/xxxxx/exec" style="font-size:12px" value="https://script.google.com/macros/s/AKfycbwX8wfGz-uYB2X9vJB-Wn4TW5ZMl1AHNGnIrceT2V1S5myMDNYycjIfk9YkpFJo6khq/exec">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="saveUrl()">保存並測試</button>
+        <button class="btn btn-sm" onclick="window.open('https://docs.google.com/spreadsheets/d/1m0iPAfrZ7AmHYZ4yA3IVak1qmNDIr7JQbT7FZY2CQaY/edit','_blank')">打開 Google Sheet ↗</button>
+      </div>
+      <div style="margin-top:12px;padding:12px;background:var(--surf);border-radius:var(--r);border:1px solid var(--brd)">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">Apps Script 部署步驟：</div>
+        <div style="font-size:12px;color:var(--t2);line-height:2">
+          1. 打開 Google Sheet → 擴展功能 → Apps Script<br>
+          2. 把 <b>Code.gs</b> 代碼貼入保存<br>
+          3. 執行 <b>initHeaders()</b> 初始化欄位<br>
+          4. 部署 → 新增部署 → 類型：網頁應用程式<br>
+          5. 執行身份：<b>我</b> · 存取權限：<b>所有人</b><br>
+          6. 複製 URL 貼入上方欄位
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="ct">自動刷新</span></div>
+    <div class="cb">
+      <div class="ig">
+        <div class="il">概覽自動刷新間隔</div>
+        <select class="inp" id="cfgInterval" style="font-size:13px">
+          <option value="15">每 15 秒</option>
+          <option value="30" selected>每 30 秒</option>
+          <option value="60">每 1 分鐘</option>
+          <option value="0">關閉自動刷新</option>
+        </select>
+      </div>
+      <button class="btn btn-g" onclick="saveInterval()">保存</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="ct">系統信息</span></div>
+    <div style="padding:0 14px">
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--t2)">後台數據庫</span><span style="font-size:13px;font-weight:600">Google Sheets</span></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--t2)">語音識別</span><span style="font-size:13px;font-weight:600">Web Speech API</span></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--t2)">OCR 識別</span><span style="font-size:13px;font-weight:600">Tesseract.js</span></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0"><span style="font-size:13px;color:var(--t2)">月費用</span><span style="font-size:13px;font-weight:700;color:var(--green)">RM 0.00</span></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+const G = {
+  url: localStorage.getItem('km_url') || 'https://script.google.com/macros/s/AKfycbwX8wfGz-uYB2X9vJB-Wn4TW5ZMl1AHNGnIrceT2V1S5myMDNYycjIfk9YkpFJo6khq/exec',
+  roster: [],          // loaded from Sheets
+  cache: {},           // plate→record map (normalized)
+  voice: {
+    i: { active:false, rec:null, lang:'ms-MY' },
+    o: { active:false, rec:null, lang:'ms-MY' }
+  },
+  ocrWorker: null,
+  filt: 'all',
+  q: '',
+  autoTimer: null,
+  interval: parseInt(localStorage.getItem('km_interval') || '30')
+};
+
+// ═══ BOOT ═══════════════════════════════════════════
+(function boot(){
+  tick(); setInterval(tick, 1000);
+  if(G.url) document.getElementById('cfgUrl').value = G.url;
+  document.getElementById('cfgInterval').value = G.interval;
+  if(G.url){ doSync(); startAutoRefresh(); }
+  else { setSyncBar('warn','請先在「設置」填入 Web App URL'); }
+})();
+
+function tick(){
+  const d = new Date();
+  document.getElementById('clk').innerHTML =
+    d.toLocaleDateString('zh-TW',{month:'short',day:'numeric',weekday:'short'}) +
+    '<br>' + d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ═══ TAB NAV ════════════════════════════════════════
+function ST(id, btn){
+  document.querySelectorAll('.tb').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('tab-'+id).classList.add('on');
+  if(id==='list')  rList();
+  if(id==='co')    rInF();
+}
+
+// ═══ TOAST ══════════════════════════════════════════
+function showT(m, ok=true){
+  const t = document.getElementById('toast');
+  t.textContent = m;
+  t.style.background = ok ? 'var(--navy)' : 'var(--red)';
+  t.style.display = 'block';
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>t.style.display='none', 2800);
+}
+
+// ═══ SYNC BAR ═══════════════════════════════════════
+function setSyncBar(type, txt){
+  const d = document.getElementById('sDot');
+  d.className = 's-dot ' + type;
+  document.getElementById('sTxt').textContent = txt;
+}
+
+// ═══ OVERLAYS ═══════════════════════════════════════
+function showUpd(txt){ document.getElementById('updTxt').textContent = txt||'更新中...'; document.getElementById('updOverlay').classList.add('on'); }
+function hideUpd(){ document.getElementById('updOverlay').classList.remove('on'); }
+function showOk(icon, name, plate, timeStr){ document.getElementById('okIcon').textContent=icon; document.getElementById('okName').textContent=name; document.getElementById('okPlate').textContent=plate; document.getElementById('okTime').textContent=timeStr; document.getElementById('okOverlay').classList.add('on'); setTimeout(closeOk, 3000); }
+function closeOk(){ document.getElementById('okOverlay').classList.remove('on'); }
+
+// ═══ API CALLS ══════════════════════════════════════
+async function api(params){
+  if(!G.url){ showT('請先設置 Web App URL',false); return null; }
+  const url = G.url + '?' + new URLSearchParams(params).toString();
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+async function doSync(){
+  if(!G.url){ setSyncBar('warn','請在「設置」填入 Web App URL'); return; }
+  setSyncBar('spin','同步中...');
+  try {
+    const data = await api({ action:'getRoster' });
+    if(!data.ok) throw new Error(data.error);
+    G.roster = data.data;
+    G.cache = {};
+    G.roster.forEach(r => { G.cache[norm(r.plate)] = r; });
+    updDash();
+    setSyncBar('ok', '已同步 · ' + G.roster.length + ' 輛 · ' + new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+    document.getElementById('lastSync').textContent = '上次同步：' + new Date().toLocaleTimeString('zh-TW');
+    rList(); rInF();
+  } catch(e){
+    setSyncBar('err','同步失敗：'+e.message);
+    showT('同步失敗：'+e.message, false);
+  }
+}
+
+async function apiCheckIn(plate, method){
+  showUpd('記錄入班中...');
+  try {
+    const data = await api({ action:'checkIn', plate, method });
+    hideUpd();
+    if(data.ok){
+      showOk('✅', data.driver, data.plate || plate, data.inTime + ' 入班');
+      await doSync();
+    } else {
+      showT(data.error, false);
+    }
+    return data;
+  } catch(e){ hideUpd(); showT('網絡錯誤：'+e.message,false); return null; }
+}
+
+async function apiCheckOut(plate, method){
+  showUpd('記錄出班中...');
+  try {
+    const data = await api({ action:'checkOut', plate, method });
+    hideUpd();
+    if(data.ok){
+      showOk('🚗', data.driver, data.plate || plate, data.outTime + ' 出班');
+      await doSync();
+    } else {
+      showT(data.error, false);
+    }
+    return data;
+  } catch(e){ hideUpd(); showT('網絡錯誤：'+e.message,false); return null; }
+}
+
+// ═══ DASHBOARD ══════════════════════════════════════
+function updDash(){
+  const r = G.roster;
+  const arr = r.filter(x=>x.status==='在場').length;
+  const left = r.filter(x=>x.status==='已出班').length;
+  const pend = r.filter(x=>x.status==='待入場').length;
+  document.getElementById('sTot').textContent  = r.length;
+  document.getElementById('sArr').textContent  = arr;
+  document.getElementById('sPend').textContent = pend;
+  document.getElementById('sOut').textContent  = left;
+  const pct = r.length ? Math.round((arr+left)/r.length*100) : 0;
+  document.getElementById('pctBar').style.width = pct+'%';
+  document.getElementById('pctBar').textContent = pct+'%';
+  document.getElementById('pctLbl').textContent = (arr+left)+' / '+r.length;
+
+  // Recent arrived
+  const arrived = r.filter(x=>x.status==='在場'||x.status==='已出班').sort((a,b)=>(b.inTime||'').localeCompare(a.inTime||''));
+  document.getElementById('recAct').innerHTML = arrived.slice(0,6).map(x=>`
+    <div style="display:flex;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--brd)">
+      <span style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;background:var(--surf);padding:2px 6px;border-radius:4px;color:var(--navy)">${x.plateFmt||x.plate}</span>
+      <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.driver}</span>
+      <span class="badge ${x.status==='在場'?'b-ok':'b-i'}">${x.status}</span>
+    </div>`).join('') || '<div style="padding:1rem;text-align:center;font-size:12px;color:var(--t3)">暫無到達記錄</div>';
+
+  // Pending
+  const pending = r.filter(x=>x.status==='待入場');
+  document.getElementById('pendCnt').textContent = pending.length+'輛';
+  document.getElementById('pendList').innerHTML = pending.slice(0,8).map(x=>`
+    <div style="display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--brd)">
+      <span style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:var(--navy)">${x.plateFmt||x.plate}</span>
+      <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.driver}</span>
+      <span style="font-size:10px;color:var(--t3)">${x.group}</span>
+    </div>`).join('') + (pending.length>8?`<div style="padding:7px 12px;font-size:11px;color:var(--t3)">還有${pending.length-8}輛...</div>`:'')
+    || '<div style="padding:1rem;text-align:center;font-size:12px;color:var(--green)">🎉 全部已到達！</div>';
+}
+
+// ═══ AUTO REFRESH ════════════════════════════════════
+function startAutoRefresh(){
+  if(G.autoTimer) clearInterval(G.autoTimer);
+  if(G.interval > 0) G.autoTimer = setInterval(doSync, G.interval * 1000);
+}
+
+// ═══ LOOKUP & PROC ══════════════════════════════════
+function norm(p){ return p ? p.toUpperCase().replace(/[\s\-]/g,'') : ''; }
+function lkup(dir){ const p = norm((dir==='i'?document.getElementById('pI'):document.getElementById('pO')).value); if(!p){showT('請輸入車牌',false);return;} proc(dir,p,'manual'); }
+function lkupD(dir){ const p = norm(document.getElementById(dir==='i'?'pbI':'pbO').textContent); if(p&&p!=='—') proc(dir,p,'voice'); }
+function editP(dir){ const c=prompt('修正車牌：',document.getElementById(dir==='i'?'pbI':'pbO').textContent||''); if(!c)return; const p=norm(c); document.getElementById(dir==='i'?'pbI':'pbO').textContent=p; if(dir==='i')document.getElementById('pI').value=p; else document.getElementById('pO').value=p; }
+
+function proc(dir, plate, method){
+  const resEl = document.getElementById(dir==='i'?'resI':'resO');
+  const rec = G.cache[plate];
+  resEl.style.display = 'block';
+
+  if(dir==='i'){
+    if(!rec){
+      resEl.innerHTML=`<div class="platebox">${plate}</div>
+        <div class="rr"><span class="rl">狀態</span><span class="badge b-w">⚠ 不在名單中</span></div>
+        <p style="font-size:12px;color:var(--t3);margin:8px 0">請確認車牌或聯絡管理員</p>
+        <button class="btn btn-sm btn-r" onclick="showT('已記錄未授權車輛',false)">記錄警告</button>`;
+    } else if(rec.status==='在場'){
+      resEl.innerHTML=`<div class="platebox">${rec.plateFmt}</div>
+        <div class="rr"><span class="rl">司機</span><span class="rv">${rec.driver}</span></div>
+        <div class="rr"><span class="rl">理經</span><span class="rv">${rec.group}</span></div>
+        <div class="rr"><span class="rl">狀態</span><span class="badge b-ok">已在場 · ${rec.inTime}</span></div>`;
+    } else {
+      const noteHtml = rec.note?`<div class="rr"><span class="rl">備注</span><span class="rv" style="color:var(--amber)">${rec.note}</span></div>`:'';
+      resEl.innerHTML=`<div class="platebox">${rec.plateFmt}</div>
+        <div class="rr"><span class="rl">司機</span><span class="rv"><b>${rec.driver}</b></span></div>
+        <div class="rr"><span class="rl">車款</span><span class="rv">${rec.car||'—'}</span></div>
+        <div class="rr"><span class="rl">理經</span><span class="rv">${rec.group}</span></div>
+        <div class="rr"><span class="rl">地區</span><span class="rv">${rec.region||'—'}</span></div>
+        <div class="rr"><span class="rl">人數</span><span class="rv">${rec.pax} 人</span></div>
+        <div class="rr"><span class="rl">聯絡</span><span class="rv">${rec.phone||'—'}</span></div>
+        ${noteHtml}
+        <div class="rr"><span class="rl">授權</span><span class="badge b-ok">✓ 已報名</span></div>
+        <button class="btn btn-g btn-fw" style="margin-top:12px" onclick="doCheckIn('${plate}','${method}')">
+          ✓ 確認到達 — 寫入 Google Sheets
+        </button>`;
+    }
+  } else {
+    if(!rec){
+      resEl.innerHTML=`<div class="platebox">${plate}</div><p style="font-size:13px;color:var(--t3)">此車牌不在名單中</p>`;
+    } else if(rec.status!=='在場'){
+      resEl.innerHTML=`<div class="platebox">${rec.plateFmt}</div>
+        <div class="rr"><span class="rl">司機</span><span class="rv">${rec.driver}</span></div>
+        <div class="rr"><span class="rl">狀態</span><span class="badge b-p">${rec.status}</span></div>
+        <button class="btn btn-r btn-fw" style="margin-top:12px" onclick="doCheckOut('${plate}','${method}')">仍然記錄出班</button>`;
+    } else {
+      resEl.innerHTML=`<div class="platebox">${rec.plateFmt}</div>
+        <div class="rr"><span class="rl">司機</span><span class="rv"><b>${rec.driver}</b></span></div>
+        <div class="rr"><span class="rl">理經</span><span class="rv">${rec.group}</span></div>
+        <div class="rr"><span class="rl">人數</span><span class="rv">${rec.pax} 人</span></div>
+        <div class="rr"><span class="rl">入班</span><span class="rv">${rec.inTime}</span></div>
+        <button class="btn btn-r btn-fw" style="margin-top:12px" onclick="doCheckOut('${plate}','${method}')">
+          ✓ 確認出班 — 寫入 Google Sheets
+        </button>`;
+    }
+  }
+}
+
+async function doCheckIn(plate, method){
+  document.getElementById('resI').style.display='none';
+  document.getElementById('pdI').style.display='none';
+  await apiCheckIn(plate, method);
+}
+
+async function doCheckOut(plate, method){
+  document.getElementById('resO').style.display='none';
+  document.getElementById('pdO').style.display='none';
+  await apiCheckOut(plate, method);
+}
+
+// ═══ LIST ═══════════════════════════════════════════
+let curFilt='all', curQ='';
+function setF(f,btn){ curFilt=f; document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on')); btn.classList.add('on'); rList(); }
+function doSrch(q){ curQ=q.toLowerCase(); rList(); }
+
+function rList(){
+  let data = G.roster;
+  if(curFilt==='in')   data = data.filter(r=>r.status==='在場');
+  else if(curFilt==='pend') data = data.filter(r=>r.status==='待入場');
+  else if(curFilt==='out')  data = data.filter(r=>r.status==='已出班');
+  if(curQ) data = data.filter(r=>(r.plate+r.driver+r.group+r.region+r.car).toLowerCase().includes(curQ));
+  const tb = document.getElementById('listTb');
+  const bc = {在場:'b-ok',已出班:'b-i',待入場:'b-p'};
+  tb.innerHTML = data.length ? data.map(r=>`<tr>
+    <td class="tdp" title="${r.note||''}">${r.plateFmt||r.plate}</td>
+    <td title="${r.phone||''}">${r.driver}</td>
+    <td>${r.group}</td>
+    <td style="text-align:center">${r.pax}</td>
+    <td><span class="badge ${bc[r.status]||'b-p'}">${r.status}</span></td>
+    <td style="font-family:monospace;font-size:11px;color:var(--t3)">${r.inTime||r.outTime||'—'}</td>
+  </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:2rem">暫無數據</td></tr>';
+  document.getElementById('sumN').textContent = data.length;
+  document.getElementById('sumP').textContent = data.reduce((s,r)=>s+(r.pax||0),0);
+}
+
+function rInF(){
+  const tb = document.getElementById('inFTb');
+  const inP = G.roster.filter(r=>r.status==='在場');
+  tb.innerHTML = inP.length ? inP.map(r=>`<tr>
+    <td class="tdp">${r.plateFmt||r.plate}</td>
+    <td>${r.driver}</td>
+    <td>${r.group}</td>
+    <td style="font-family:monospace;font-size:11px">${r.inTime||'—'}</td>
+    <td><button class="btn btn-sm btn-r" onclick="quickOut('${norm(r.plate)}')">出班</button></td>
+  </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--t3);padding:1.5rem">目前無在場車輛</td></tr>';
+}
+
+async function quickOut(plate){
+  if(!confirm('確認 '+plate+' 出班？')) return;
+  await apiCheckOut(plate,'manual');
+}
+
+// ═══ METHOD TOGGLE ══════════════════════════════════
+function setM(dir,m){
+  ['v','c','m'].forEach(x=>{
+    document.getElementById('m'+x.toUpperCase()+(dir==='i'?'I':'O')).classList.toggle('on',x===m);
+    document.getElementById('s'+dir+'-'+x).classList.toggle('on',x===m);
+  });
+  if(m!=='v' && G.voice[dir].active) stopV(dir);
+}
+
+// ═══ VOICE ══════════════════════════════════════════
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function setL(dir,lang,btn){ G.voice[dir].lang=lang; document.querySelectorAll('#lg'+(dir==='i'?'I':'O')+' .lb').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); if(G.voice[dir].active){stopV(dir);setTimeout(()=>startV(dir),300);} }
+function togV(dir){ G.voice[dir].active ? stopV(dir) : startV(dir); }
+
+function startV(dir){
+  if(!SR){ showT('請使用 Chrome 瀏覽器',false); return; }
+  const rec = new SR();
+  G.voice[dir].rec = rec;
+  rec.lang = G.voice[dir].lang;
+  rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 5;
+  const D = dir==='i';
+  rec.onstart = ()=>{
+    G.voice[dir].active = true;
+    document.getElementById(D?'micI':'micO').classList.add('on');
+    document.getElementById(D?'mLI':'mLO').textContent = '🎙 正在聆聽...';
+    document.getElementById(D?'wavI':'wavO').classList.add('on');
+    document.getElementById(D?'trI':'trO').textContent = '聆聽中...';
+    document.getElementById(D?'trI':'trO').className = 'tr-txt';
+  };
+  rec.onresult = (e)=>{
+    let fin='', int='';
+    for(let i=e.resultIndex;i<e.results.length;i++){ if(e.results[i].isFinal) fin+=e.results[i][0].transcript; else int+=e.results[i][0].transcript; }
+    const disp = fin||int;
+    document.getElementById(D?'trI':'trO').textContent = disp||'聆聽中...';
+    document.getElementById(D?'trI':'trO').className = 'tr-txt'+(disp?' has':'');
+    if(fin){
+      let best=null;
+      for(let i=0;i<e.results[e.results.length-1].length;i++){ const p=xPlate(e.results[e.results.length-1][i].transcript); if(p){best=p;break;} }
+      if(!best) best=xPlate(fin);
+      if(best){
+        document.getElementById(D?'pbI':'pbO').textContent = best;
+        document.getElementById(D?'pdI':'pdO').style.display = 'block';
+        if(D) document.getElementById('pI').value=best; else document.getElementById('pO').value=best;
+        document.getElementById(D?'trI':'trO').textContent = '✅ ' + fin;
+        showT('語音識別：'+best);
+        setTimeout(()=>proc(dir,best,'voice'), 500);
+      } else {
+        document.getElementById(D?'trI':'trO').textContent = '❓ 未識別車牌：「'+fin+'」';
+      }
+    }
+  };
+  rec.onerror=(e)=>{ stopV(dir); showT({'not-allowed':'請允許麥克風','no-speech':'未偵測到聲音','network':'需要網絡'}[e.error]||('錯誤:'+e.error),false); };
+  rec.onend=()=>stopV(dir);
+  rec.start();
+}
+
+function stopV(dir){
+  G.voice[dir].active=false;
+  if(G.voice[dir].rec){try{G.voice[dir].rec.stop();}catch(e){}G.voice[dir].rec=null;}
+  const D=dir==='i';
+  document.getElementById(D?'micI':'micO').classList.remove('on');
+  document.getElementById(D?'mLI':'mLO').textContent='點一下說出車牌';
+  document.getElementById(D?'wavI':'wavO').classList.remove('on');
+}
+
+// ═══ PLATE EXTRACTION ═══════════════════════════════
+function xPlate(raw){
+  if(!raw) return null;
+  let s = raw.toUpperCase()
+    .replace(/[，。！？,.!?]/g,'')
+    .replace(/\bALPHA\b/g,'A').replace(/\bBRAVO\b/g,'B').replace(/\bCHARLIE\b/g,'C')
+    .replace(/\bDELTA\b/g,'D').replace(/\bECHO\b/g,'E').replace(/\bFOXTROT\b/g,'F')
+    .replace(/\bGOLF\b/g,'G').replace(/\bHOTEL\b/g,'H').replace(/\bINDIA\b/g,'I')
+    .replace(/\bJULIET\b/g,'J').replace(/\bKILO\b/g,'K').replace(/\bLIMA\b/g,'L')
+    .replace(/\bMIKE\b/g,'M').replace(/\bNOVEMBER\b/g,'N').replace(/\bOSCAR\b/g,'O')
+    .replace(/\bPAPA\b/g,'P').replace(/\bQUEBEC\b/g,'Q').replace(/\bROMEO\b/g,'R')
+    .replace(/\bSIERRA\b/g,'S').replace(/\bTANGO\b/g,'T').replace(/\bUNIFORM\b/g,'U')
+    .replace(/\bVICTOR\b/g,'V').replace(/\bWHISKEY\b/g,'W').replace(/\bXRAY\b|\bX-RAY\b/g,'X')
+    .replace(/\bYANKEE\b/g,'Y').replace(/\bZULU\b/g,'Z')
+    .replace(/零/g,'0').replace(/一/g,'1').replace(/二|兩/g,'2').replace(/三/g,'3')
+    .replace(/四/g,'4').replace(/五/g,'5').replace(/六/g,'6').replace(/七/g,'7')
+    .replace(/八/g,'8').replace(/九/g,'9')
+    .replace(/\bZERO\b/g,'0').replace(/\bONE\b/g,'1').replace(/\bTWO\b/g,'2')
+    .replace(/\bTHREE\b/g,'3').replace(/\bFOUR\b/g,'4').replace(/\bFIVE\b/g,'5')
+    .replace(/\bSIX\b/g,'6').replace(/\bSEVEN\b/g,'7').replace(/\bEIGHT\b/g,'8').replace(/\bNINE\b/g,'9')
+    .replace(/\bKOSONG\b/g,'0').replace(/\bSATU\b/g,'1').replace(/\bDUA\b/g,'2')
+    .replace(/\bTIGA\b/g,'3').replace(/\bEMPAT\b/g,'4').replace(/\bENAM\b/g,'6')
+    .replace(/\bTUJUH\b/g,'7').replace(/\bLAPAN\b/g,'8').replace(/\bSEMBILAN\b/g,'9')
+    .replace(/\b(PLATE|NUMBER|NOMBOR|PLAT|KERETA|CAR|IS|NO|NUM)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+  // Try direct roster match first
+  const sn = s.replace(/\s/g,'');
+  if(G.cache[sn]) return sn;
+  const m = s.match(/([A-Z]{1,3})\s*(\d{1,4})\s*([A-Z]?)/);
+  if(!m) return null;
+  const pfx = m[1];
+  if(!'WBSVJPNAKDMRTCQFGHLEV'.split('').some(x=>pfx.startsWith(x))) return null;
+  const candidate = (pfx+m[2]+(m[3]||'')).replace(/\s/g,'');
+  return candidate.length >= 3 ? candidate : null;
+}
+
+// ═══ OCR ════════════════════════════════════════════
+async function capImg(inp, dir){
+  const f = inp.files[0]; if(!f) return;
+  const pv = document.getElementById('pv'+(dir==='i'?'I':'O'));
+  pv.src = URL.createObjectURL(f); pv.style.display='block';
+  if(dir==='i') await runOCR(f, dir);
+  else { showT('請手動確認車牌後查詢'); const p = await quickOCR(f); if(p){ document.getElementById('pO').value=p; proc('o',p,'cam'); } }
+  inp.value='';
+}
+
+async function runOCR(f, dir){
+  document.getElementById('ocrBox').style.display='block';
+  const sm=m=>document.getElementById('ocrMsg').textContent=m;
+  const sb=p=>document.getElementById('ocrBar').style.width=p+'%';
+  try{
+    if(!G.ocrWorker){
+      sm('加載 OCR 引擎（首次約10秒）...');sb(5);
+      G.ocrWorker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text'){sb(Math.round(m.progress*100));sm('識別中 '+Math.round(m.progress*100)+'%...');}}});
+      await G.ocrWorker.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '});
+    }
+    sm('識別中...');sb(20);
+    const{data:{text}}=await G.ocrWorker.recognize(f);sb(100);
+    const plate=xPlate(text);
+    setTimeout(()=>document.getElementById('ocrBox').style.display='none',600);
+    if(plate){ document.getElementById('pI').value=plate; document.getElementById('pbI').textContent=plate; document.getElementById('pdI').style.display='block'; showT('OCR：'+plate); proc(dir,plate,'cam'); }
+    else showT('未能識別，請手動輸入',false);
+  }catch(e){document.getElementById('ocrBox').style.display='none';showT('OCR 出錯',false);}
+}
+
+async function quickOCR(f){
+  try{
+    if(!G.ocrWorker){G.ocrWorker=await Tesseract.createWorker('eng',1,{});await G.ocrWorker.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '});}
+    const{data:{text}}=await G.ocrWorker.recognize(f);
+    return xPlate(text);
+  }catch(e){return null;}
+}
+
+// ═══ SETTINGS ════════════════════════════════════════
+function saveUrl(){
+  const url=document.getElementById('cfgUrl').value.trim();
+  if(!url){showT('請填入 URL',false);return;}
+  G.url=url;localStorage.setItem('km_url',url);
+  doSync();startAutoRefresh();
+}
+function saveInterval(){
+  G.interval=parseInt(document.getElementById('cfgInterval').value);
+  localStorage.setItem('km_interval',G.interval);
+  startAutoRefresh();
+  showT('自動刷新已設置');
+}
+</script>
+</body>
+</html>
