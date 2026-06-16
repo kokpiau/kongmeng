@@ -431,7 +431,7 @@ tr:hover td{background:var(--blue-l)}
     <div class="cb">
       <div class="ig">
         <div class="il">Web App URL（Apps Script 部署後複製貼入）</div>
-        <input class="inp" id="cfgUrl" placeholder="https://script.google.com/macros/s/xxxxx/exec" style="font-size:12px" value="https://script.google.com/macros/s/AKfycbwX8wfGz-uYB2X9vJB-Wn4TW5ZMl1AHNGnIrceT2V1S5myMDNYycjIfk9YkpFJo6khq/exec">
+        <input class="inp" id="cfgUrl" placeholder="https://script.google.com/macros/s/xxxxx/exec" style="font-size:12px" value="https://kongmeng.kokpiau.workers.dev/">
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-p" onclick="saveUrl()">保存並測試</button>
@@ -484,7 +484,7 @@ tr:hover td{background:var(--blue-l)}
 //  STATE
 // ═══════════════════════════════════════════════════
 const G = {
-  url: localStorage.getItem('km_url') || 'https://script.google.com/macros/s/AKfycbwX8wfGz-uYB2X9vJB-Wn4TW5ZMl1AHNGnIrceT2V1S5myMDNYycjIfk9YkpFJo6khq/exec',
+  url: localStorage.getItem('km_url') || 'https://kongmeng.kokpiau.workers.dev/',
   roster: [],          // loaded from Sheets
   cache: {},           // plate→record map (normalized)
   voice: {
@@ -551,31 +551,14 @@ function closeOk(){ document.getElementById('okOverlay').classList.remove('on');
 // ═══ API — Safari 兼容版（CORS 代理）════════════════════
 function api(params){
   if(!G.url){ showT('請先設置 Web App URL',false); return Promise.reject(new Error('No URL')); }
-  return new Promise((resolve, reject)=>{
-    const cbName = 'jcb' + Date.now() + Math.floor(Math.random()*10000);
-    const p = new URLSearchParams(params);
-    p.set('callback', cbName);
-    const s = document.createElement('script');
-    s.src = G.url + '?' + p.toString();
-    let done = false;
-    const cleanup = ()=>{
-      try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; }
-      if(s.parentNode) s.parentNode.removeChild(s);
-    };
-    const timer = setTimeout(()=>{
-      if(done) return; done=true; cleanup();
-      reject(new Error('連接超時，請重試'));
-    }, 20000);
-    window[cbName] = (data)=>{
-      if(done) return; done=true; clearTimeout(timer); cleanup();
-      resolve(data);
-    };
-    s.onerror = ()=>{
-      if(done) return; done=true; clearTimeout(timer); cleanup();
-      reject(new Error('連接失敗，請檢查網絡'));
-    };
-    document.head.appendChild(s);
-  });
+  const qs = new URLSearchParams(params).toString();
+  const url = G.url + (G.url.includes('?')?'&':'?') + qs;
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), 15000);
+  return fetch(url, {method:'GET', signal:ctrl.signal, cache:'no-cache'})
+    .then(r=>{ clearTimeout(t); if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(txt=>JSON.parse(txt))
+    .catch(e=>{ clearTimeout(t); throw new Error(e.name==='AbortError'?'連接超時':e.message); });
 }
 
 async function doSync(){
