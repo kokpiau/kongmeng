@@ -549,41 +549,33 @@ function closeOk(){ document.getElementById('okOverlay').classList.remove('on');
 
 // ═══ API CALLS ══════════════════════════════════════
 // ═══ API — Safari 兼容版（CORS 代理）════════════════════
-async function api(params){
-  if(!G.url){ showT('請先設置 Web App URL',false); return null; }
-  const qs = new URLSearchParams(params).toString();
-  const directUrl = G.url + '?' + qs;
-
-  // 方法1：直接 fetch（Chrome桌面）
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(()=>ctrl.abort(), 8000);
-    const r = await fetch(directUrl, {signal:ctrl.signal, cache:'no-cache'});
-    clearTimeout(t);
-    if(r.ok){ const d=await r.json(); if(d) return d; }
-  } catch(e){}
-
-  // 方法2：corsproxy.io（Safari iPhone）
-  try {
-    const proxy = 'https://corsproxy.io/?' + encodeURIComponent(directUrl);
-    const ctrl = new AbortController();
-    const t = setTimeout(()=>ctrl.abort(), 10000);
-    const r = await fetch(proxy, {signal:ctrl.signal, cache:'no-cache'});
-    clearTimeout(t);
-    if(r.ok){ const d=await r.json(); if(d) return d; }
-  } catch(e){}
-
-  // 方法3：allorigins.win（備用代理）
-  try {
-    const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(directUrl);
-    const ctrl = new AbortController();
-    const t = setTimeout(()=>ctrl.abort(), 10000);
-    const r = await fetch(proxy, {signal:ctrl.signal, cache:'no-cache'});
-    clearTimeout(t);
-    if(r.ok){ const text=await r.text(); return JSON.parse(text); }
-  } catch(e){}
-
-  throw new Error('連接失敗，請檢查網絡連接');
+function api(params){
+  if(!G.url){ showT('請先設置 Web App URL',false); return Promise.reject(new Error('No URL')); }
+  return new Promise((resolve, reject)=>{
+    const cbName = 'jcb' + Date.now() + Math.floor(Math.random()*10000);
+    const p = new URLSearchParams(params);
+    p.set('callback', cbName);
+    const s = document.createElement('script');
+    s.src = G.url + '?' + p.toString();
+    let done = false;
+    const cleanup = ()=>{
+      try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; }
+      if(s.parentNode) s.parentNode.removeChild(s);
+    };
+    const timer = setTimeout(()=>{
+      if(done) return; done=true; cleanup();
+      reject(new Error('連接超時，請重試'));
+    }, 20000);
+    window[cbName] = (data)=>{
+      if(done) return; done=true; clearTimeout(timer); cleanup();
+      resolve(data);
+    };
+    s.onerror = ()=>{
+      if(done) return; done=true; clearTimeout(timer); cleanup();
+      reject(new Error('連接失敗，請檢查網絡'));
+    };
+    document.head.appendChild(s);
+  });
 }
 
 async function doSync(){
