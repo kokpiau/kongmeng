@@ -124,6 +124,15 @@ body{font-family:-apple-system,'PingFang TC','Noto Sans TC',sans-serif;backgroun
 
 /* ── RESULT BOX ── */
 .platebox{font-family:'Courier New',monospace;font-size:24px;font-weight:700;letter-spacing:5px;text-align:center;padding:14px;background:var(--gold-l);border:2px solid var(--gold);border-radius:var(--r);color:var(--navy);margin-bottom:12px}
+
+/* ── 車牌 + 圓形確認按鈕（右下角懸浮）── */
+.plate-wrap{position:relative;margin-bottom:14px}
+.plate-wrap .platebox{margin-bottom:0;padding-right:50px}
+.confirm-circle{position:absolute;right:-6px;bottom:-12px;width:62px;height:62px;border-radius:50%;border:3px solid #fff;background:var(--green);color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(15,32,68,.25);transition:transform .12s}
+.confirm-circle:active{transform:scale(.92)}
+.confirm-circle svg{display:block}
+.confirm-circle .lbl{font-size:9.5px;font-weight:700;margin-top:1px;line-height:1}
+.confirm-circle.out{background:var(--red)}
 .rbox{background:var(--surf);border-radius:var(--rl);padding:14px;margin-top:10px;border:1px solid var(--brd);display:none}
 .rr{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}.rr:last-child{margin-bottom:0}
 .rl{font-size:13px;color:var(--t3);width:64px;flex-shrink:0;padding-top:1px}
@@ -614,7 +623,10 @@ function setSyncBar(type, txt){
 // ═══ OVERLAYS ═══════════════════════════════════════
 function showUpd(txt){ document.getElementById('updTxt').textContent = txt||'更新中...'; document.getElementById('updOverlay').classList.add('on'); }
 function hideUpd(){ document.getElementById('updOverlay').classList.remove('on'); }
-function showOk(icon, name, plate, timeStr){ document.getElementById('okIcon').textContent=icon; document.getElementById('okName').textContent=name; document.getElementById('okPlate').textContent=plate; document.getElementById('okTime').textContent=timeStr; document.getElementById('okOverlay').classList.add('on'); setTimeout(closeOk, 3000); }
+function showOk(icon, name, plate, timeStr){
+  // 改用底部 toast 即可，不再彈出視窗擋住畫面
+  showT(icon + ' ' + name + ' · ' + (timeStr||''));
+}
 function closeOk(){ document.getElementById('okOverlay').classList.remove('on'); }
 
 // ═══ API CALLS ══════════════════════════════════════
@@ -942,7 +954,13 @@ function proc(dir, plate, method){
         <div class="rr"><span class="rl">狀態</span><span class="badge b-ok">已入班 · ${rec.inTime}</span></div>`;
     } else {
       const noteHtml = rec.note?`<div class="rr"><span class="rl">備注</span><span class="rv" style="color:var(--amber)">${rec.note}</span></div>`:'';
-      resEl.innerHTML=`<div class="platebox">${rec.plateFmt}</div>
+      resEl.innerHTML=`<div class="plate-wrap">
+          <div class="platebox">${rec.plateFmt}</div>
+          <button class="confirm-circle" onclick="doCheckIn('${plate}','${method}')" aria-label="確認到達">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 10 18 20 6"/></svg>
+            <span class="lbl">確認到達</span>
+          </button>
+        </div>
         <div class="rr"><span class="rl">司機</span><span class="rv"><b>${rec.driver}</b></span></div>
         <div class="rr"><span class="rl">車款</span><span class="rv">${rec.car||'—'}</span></div>
         <div class="rr"><span class="rl">理經</span><span class="rv">${rec.group}</span></div>
@@ -950,10 +968,7 @@ function proc(dir, plate, method){
         <div class="rr"><span class="rl">人數</span><span class="rv">${rec.pax} 人</span></div>
         <div class="rr"><span class="rl">聯絡</span><span class="rv">${rec.phone||'—'}</span></div>
         ${noteHtml}
-        <div class="rr"><span class="rl">授權</span><span class="badge b-ok">✓ 已報名</span></div>
-        <button class="btn btn-g btn-fw" style="margin-top:12px" onclick="doCheckIn('${plate}','${method}')">
-          ✓ 確認到達 — 寫入 Google Sheets
-        </button>`;
+        <div class="rr"><span class="rl">授權</span><span class="badge b-ok">✓ 已報名</span></div>`;
     }
   } else {
     if(!rec){
@@ -964,14 +979,17 @@ function proc(dir, plate, method){
         <div class="rr"><span class="rl">狀態</span><span class="badge b-i">已出班 · ${rec.outTime||''}</span></div>
         <button class="btn btn-r btn-fw" style="margin-top:12px" onclick="doCheckOut('${plate}','${method}')">仍然記錄出班</button>`;
     } else {
-      resEl.innerHTML=`<div class="platebox">${rec.plateFmt}</div>
+      resEl.innerHTML=`<div class="plate-wrap">
+          <div class="platebox">${rec.plateFmt}</div>
+          <button class="confirm-circle out" onclick="doCheckOut('${plate}','${method}')" aria-label="確認出班">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 10 18 20 6"/></svg>
+            <span class="lbl">確認出班</span>
+          </button>
+        </div>
         <div class="rr"><span class="rl">司機</span><span class="rv"><b>${rec.driver}</b></span></div>
         <div class="rr"><span class="rl">理經</span><span class="rv">${rec.group}</span></div>
         <div class="rr"><span class="rl">人數</span><span class="rv">${rec.pax} 人</span></div>
-        ${rec.inTime?`<div class="rr"><span class="rl">入班</span><span class="rv">${rec.inTime}</span></div>`:''}
-        <button class="btn btn-r btn-fw" style="margin-top:12px" onclick="doCheckOut('${plate}','${method}')">
-          ✓ 確認出班 — 寫入 Google Sheets
-        </button>`;
+        ${rec.inTime?`<div class="rr"><span class="rl">入班</span><span class="rv">${rec.inTime}</span></div>`:''}`;
     }
   }
 }
