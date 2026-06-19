@@ -315,13 +315,13 @@ tr:hover td{background:var(--blue-l)}
     <div class="cb">
       <!-- Method -->
       <div class="mrow">
-        <button class="mb on" id="mVI" onclick="setM('i','v')">
+        <button class="mb on" id="mVI" onclick="pickM('i','v')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>語音
         </button>
-        <button class="mb" id="mCI" onclick="setM('i','c')">
+        <button class="mb" id="mCI" onclick="pickM('i','c')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>拍照
         </button>
-        <button class="mb" id="mMI" onclick="setM('i','m')">
+        <button class="mb" id="mMI" onclick="pickM('i','m')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>手動
         </button>
       </div>
@@ -401,13 +401,13 @@ tr:hover td{background:var(--blue-l)}
     <div class="ch"><span class="ct">出班登記</span></div>
     <div class="cb">
       <div class="mrow">
-        <button class="mb on" id="mVO" onclick="setM('o','v')">
+        <button class="mb on" id="mVO" onclick="pickM('o','v')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>語音
         </button>
-        <button class="mb" id="mCO" onclick="setM('o','c')">
+        <button class="mb" id="mCO" onclick="pickM('o','c')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>拍照
         </button>
-        <button class="mb" id="mMO" onclick="setM('o','m')">
+        <button class="mb" id="mMO" onclick="pickM('o','m')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>手動
         </button>
       </div>
@@ -556,6 +556,7 @@ const G = {
   outRoster: [],       // 出班名單
   outCache: {},        // 出班 plate→record
   overview: null,      // 時段小計
+  src: { i:'manual', o:'manual' },  // 各方向最後使用的輸入方式（記錄後跳回）
   cache: {},           // plate→record map (normalized)
   voice: {
     i: { active:false, rec:null, lang:'zh-TW' },
@@ -903,6 +904,7 @@ function pickSug(dir, plate){
 }
 
 function lkup(dir){
+  G.src[dir] = 'manual';
   const raw = (dir==='i'?document.getElementById('pI'):document.getElementById('pO')).value;
   const p = norm(raw);
   if(!p){showT('請輸入車牌',false);return;}
@@ -979,7 +981,9 @@ async function doCheckIn(plate, method){
   document.getElementById('pdI').style.display='none';
   document.getElementById('sugI').innerHTML='';
   document.getElementById('pI').value='';
+  clearCamInputs('i');
   await apiCheckIn(plate, method);
+  returnToSource('i', method);
 }
 
 async function doCheckOut(plate, method){
@@ -987,7 +991,34 @@ async function doCheckOut(plate, method){
   document.getElementById('pdO').style.display='none';
   document.getElementById('sugO').innerHTML='';
   document.getElementById('pO').value='';
+  clearCamInputs('o');
   await apiCheckOut(plate, method);
+  returnToSource('o', method);
+}
+
+// 清空拍照分頁的輸入與照片
+function clearCamInputs(base){
+  const D = base==='i';
+  const pc = document.getElementById(D?'pCI':'pCO'); if(pc) pc.value='';
+  const sc = document.getElementById(D?'sugCI':'sugCO'); if(sc) sc.innerHTML='';
+  const camInp = document.getElementById(D?'camInpI':'camInpO'); if(camInp) camInp.style.display='none';
+  const pv = document.getElementById(D?'pvI':'pvO'); if(pv) pv.style.display='none';
+}
+
+// 記錄完成後跳回原本的輸入方式分頁，方便連續記錄
+function returnToSource(base, method){
+  const source = G.src[base] || method || 'manual';
+  let m = 'm';
+  if(source==='voice') m = 'v';
+  else if(source==='cam') m = 'c';
+  setM(base, m);
+  // 若回到語音分頁，重置語音提示文字
+  if(m==='v'){
+    const tr = document.getElementById(base==='i'?'trI':'trO');
+    if(tr){ tr.textContent='等待語音...'; tr.className='tr-txt'; }
+  }
+  // 回到拍照分頁則清掉舊照片
+  if(m==='c') clearCamInputs(base);
 }
 
 // ═══ LIST ═══════════════════════════════════════════
@@ -1059,6 +1090,11 @@ function setM(dir,m){
   });
   if(m!=='v' && G.voice[dir].active) stopV(dir);
 }
+// 使用者手動點選輸入方式按鈕 → 記錄來源，方便記錄後跳回
+function pickM(dir,m){
+  G.src[dir] = (m==='v'?'voice':m==='c'?'cam':'manual');
+  setM(dir,m);
+}
 
 // ═══ VOICE ══════════════════════════════════════════
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1091,6 +1127,7 @@ function startV(dir){
       for(let i=0;i<e.results[e.results.length-1].length;i++){ const p=xPlate(e.results[e.results.length-1][i].transcript); if(p){best=p;break;} }
       if(!best) best=xPlate(fin);
       if(best){
+        G.src[dir] = 'voice';
         document.getElementById(D?'pbI':'pbO').textContent = best;
         document.getElementById(D?'pdI':'pdO').style.display = 'block';
         if(D) document.getElementById('pI').value=best; else document.getElementById('pO').value=best;
@@ -1183,6 +1220,7 @@ function xPlate(raw){
 // ═══ OCR ════════════════════════════════════════════
 async function capImg(inp, dir){
   const f = inp.files[0]; if(!f) return;
+  G.src[dir] = 'cam';
   const D = dir==='i';
   const pv = document.getElementById(D?'pvI':'pvO');
   pv.src = URL.createObjectURL(f); pv.style.display='block';
