@@ -353,13 +353,16 @@ tr:hover td{background:var(--blue-l)}
         <div style="border:2px dashed var(--brd);border-radius:var(--rl);padding:1.5rem;text-align:center;cursor:pointer;background:var(--surf);margin-bottom:10px" onclick="document.getElementById('camI').click()">
           <div style="font-size:30px;margin-bottom:8px">📷</div>
           <div style="font-size:14px;font-weight:600;margin-bottom:3px">拍攝車牌</div>
-          <div style="font-size:11px;color:var(--t3)">Tesseract OCR 本地識別 · 免費</div>
+          <div style="font-size:11px;color:var(--t3)">拍照後看著照片輸入車牌</div>
         </div>
         <input type="file" id="camI" accept="image/*" capture="environment" style="display:none" onchange="capImg(this,'i')">
-        <img id="pvI" style="width:100%;max-height:130px;object-fit:cover;border-radius:var(--r);margin-bottom:8px;display:none;border:1px solid var(--brd)">
-        <div id="ocrBox" style="background:var(--blue-l);border:1px solid #B5D0EE;border-radius:var(--r);padding:10px 12px;display:none">
-          <div id="ocrMsg" style="font-size:12px;color:var(--blue);margin-bottom:6px">識別中...</div>
-          <div style="height:4px;background:rgba(27,95,191,.15);border-radius:2px;overflow:hidden"><div id="ocrBar" style="height:4px;background:var(--blue);border-radius:2px;transition:width .3s;width:0%"></div></div>
+        <img id="pvI" style="width:100%;max-height:200px;object-fit:contain;border-radius:var(--r);margin-bottom:10px;display:none;border:1px solid var(--brd);background:#000">
+        <div id="camInpI" style="display:none">
+          <div class="irow">
+            <input class="inp inp-pl" id="pCI" placeholder="看照片輸入車牌" autocomplete="off" oninput="this.value=this.value.toUpperCase();liveSearch('ci')">
+            <button class="btn btn-p" onclick="lkupCam('i')">查詢</button>
+          </div>
+          <div id="sugCI" class="suglist"></div>
         </div>
       </div>
 
@@ -429,10 +432,17 @@ tr:hover td{background:var(--blue-l)}
         <div style="border:2px dashed var(--brd);border-radius:var(--rl);padding:1.5rem;text-align:center;cursor:pointer;background:var(--surf);margin-bottom:10px" onclick="document.getElementById('camO').click()">
           <div style="font-size:30px;margin-bottom:8px">📷</div>
           <div style="font-size:14px;font-weight:600;margin-bottom:3px">拍攝出班車牌</div>
-          <div style="font-size:11px;color:var(--t3)">自動記錄離開時間</div>
+          <div style="font-size:11px;color:var(--t3)">拍照後看著照片輸入車牌</div>
         </div>
         <input type="file" id="camO" accept="image/*" capture="environment" style="display:none" onchange="capImg(this,'o')">
-        <img id="pvO" style="width:100%;max-height:130px;object-fit:cover;border-radius:var(--r);margin-bottom:8px;display:none;border:1px solid var(--brd)">
+        <img id="pvO" style="width:100%;max-height:200px;object-fit:contain;border-radius:var(--r);margin-bottom:10px;display:none;border:1px solid var(--brd);background:#000">
+        <div id="camInpO" style="display:none">
+          <div class="irow">
+            <input class="inp inp-pl" id="pCO" placeholder="看照片輸入車牌" autocomplete="off" oninput="this.value=this.value.toUpperCase();liveSearch('co')">
+            <button class="btn btn-r" onclick="lkupCam('o')">查詢出班</button>
+          </div>
+          <div id="sugCO" class="suglist"></div>
+        </div>
       </div>
       <div class="ms" id="so-m">
         <div class="irow">
@@ -530,13 +540,12 @@ tr:hover td{background:var(--blue-l)}
     <div style="padding:0 14px">
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--t2)">後台數據庫</span><span style="font-size:13px;font-weight:600">Google Sheets</span></div>
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--t2)">語音識別</span><span style="font-size:13px;font-weight:600">Web Speech API</span></div>
-      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--t2)">OCR 識別</span><span style="font-size:13px;font-weight:600">Tesseract.js</span></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--t2)">拍照</span><span style="font-size:13px;font-weight:600">照片+手動輸入</span></div>
       <div style="display:flex;justify-content:space-between;padding:10px 0"><span style="font-size:13px;color:var(--t2)">月費用</span><span style="font-size:13px;font-weight:700;color:var(--green)">RM 0.00</span></div>
     </div>
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════
 //  STATE
@@ -552,7 +561,6 @@ const G = {
     i: { active:false, rec:null, lang:'zh-TW' },
     o: { active:false, rec:null, lang:'zh-TW' }
   },
-  ocrWorker: null,
   filt: 'all',
   q: '',
   autoTimer: null,
@@ -763,48 +771,96 @@ function startAutoRefresh(){
 function norm(p){ return p ? p.toUpperCase().replace(/[\s\-]/g,'') : ''; }
 
 // 即時搜尋候選（手動輸入）
+// dir 可為 'i'/'o'（語音/手動）或 'ci'/'co'（拍照輸入框）
+function dirParts(dir){
+  if(dir==='ci') return {base:'i', inp:'pCI', box:'sugCI'};
+  if(dir==='co') return {base:'o', inp:'pCO', box:'sugCO'};
+  return {base:dir, inp:(dir==='i'?'pI':'pO'), box:(dir==='i'?'sugI':'sugO')};
+}
 function liveSearch(dir){
-  const inp = document.getElementById(dir==='i'?'pI':'pO');
-  const box = document.getElementById(dir==='i'?'sugI':'sugO');
+  const P = dirParts(dir);
+  const inp = document.getElementById(P.inp);
+  const box = document.getElementById(P.box);
   const q = norm(inp.value);
   if(q.length < 2){ box.innerHTML=''; return; }
-  const matches = fuzzyMatch(q, dir);
+  const matches = fuzzyMatch(q, P.base);
   if(!matches.length){ box.innerHTML='<div class="sug-hd">沒有符合的車輛</div>'; return; }
-  box.innerHTML = '<div class="sug-hd">符合車輛（點選確認）：</div>' + matches.slice(0,8).map(r=>sugItemHtml(r,dir)).join('');
+  box.innerHTML = '<div class="sug-hd">符合車輛（點選確認）：</div>' + matches.slice(0,8).map(r=>sugItemHtml(r,P.base)).join('');
+}
+function lkupCam(base){
+  const P = dirParts(base==='i'?'ci':'co');
+  const p = norm(document.getElementById(P.inp).value);
+  if(!p){showT('請輸入車牌',false);return;}
+  const exact = (base==='o') ? (G.cache[p]||G.outCache[p]) : G.cache[p];
+  if(exact){ proc(base,p,'cam'); return; }
+  const matches = fuzzyMatch(p, base);
+  if(matches.length===1){ proc(base, matches[0].plate, 'cam'); return; }
+  if(matches.length>1){
+    document.getElementById(P.box).innerHTML = '<div class="sug-hd">找到多個相近車輛，請點選：</div>' + matches.slice(0,8).map(r=>sugItemHtml(r,base)).join('');
+    return;
+  }
+  proc(base,p,'cam');
 }
 
 // 模糊比對：車牌任何部分包含查詢字串，或數字段相符
+// 字元混淆組（語音/OCR 常見誤認，互相可替換）
+const CONFUSE = [
+  ['1','I','L','E'],   // 1 ↔ I ↔ L ↔ E（中文念 E 常變 1）
+  ['0','O','D','Q'],   // 0 ↔ O ↔ D ↔ Q
+  ['3','E'],           // 3 ↔ E
+  ['8','B'],           // 8 ↔ B
+  ['5','S'],           // 5 ↔ S
+  ['2','Z'],           // 2 ↔ Z
+  ['6','G'],           // 6 ↔ G
+  ['7','T'],           // 7 ↔ T
+  ['4','A'],           // 4 ↔ A
+  ['9','G','Q']        // 9 ↔ G ↔ Q
+];
+// 把字串每個字元正規化為「混淆組代表字」，同組視為相同
+function confuseKey(s){
+  return s.split('').map(ch=>{
+    for(const grp of CONFUSE){ if(grp.includes(ch)) return grp[0]; }
+    return ch;
+  }).join('');
+}
+
 function fuzzyMatch(q, dir){
   if(!q) return [];
   const qn = norm(q);
-  // 出班用出班名單，入班用入班名單；出班也含入班名單作後備
   let pool = G.roster;
   if(dir==='o'){
     pool = (G.outRoster && G.outRoster.length) ? G.outRoster : G.roster;
   }
+  const qKey = confuseKey(qn);
+  const qDigits = qn.replace(/[^0-9]/g,'');
+  const qKeyDigits = confuseKey(qDigits);
   const scored = [];
   const seen = {};
   pool.forEach(r=>{
     if(!r.plate || seen[r.plate]) return;
     seen[r.plate]=1;
     const p = r.plate;
+    const pKey = confuseKey(p);
     let score = 0;
     if(p === qn) score = 100;
-    else if(p.startsWith(qn)) score = 92;
+    else if(pKey === qKey) score = 95;                 // 混淆容錯後完全相同（E↔1 等）
+    else if(p.startsWith(qn)) score = 90;
+    else if(pKey.startsWith(qKey) && qKey.length>=3) score = 88;
     else if(p.includes(qn)) score = 85;
-    else if(qn.includes(p)) score = 84;        // 識別多了字（如 C2811 含於 VNC2811 反向）
+    else if(qn.includes(p)) score = 84;                // 識別多字（C2811⊂VNC2811）
+    else if(pKey.includes(qKey) && qKey.length>=3) score = 82;  // 混淆容錯後包含
+    else if(qKey.includes(pKey) && pKey.length>=3) score = 80;
     else {
-      const qDigits = qn.replace(/[^0-9]/g,'');
-      const pDigits = p.replace(/[^0-9]/g,'');
-      if(qDigits.length>=3 && pDigits===qDigits) score = 78;       // 數字段完全相同（解決 E/1 混淆）
-      else if(qDigits.length>=3 && pDigits.includes(qDigits)) score = 72;
-      else if(qDigits.length>=3 && qDigits.includes(pDigits) && pDigits.length>=3) score = 70;
+      const pKeyDigits = confuseKey(p.replace(/[^0-9]/g,''));
+      if(qKeyDigits.length>=3 && pKeyDigits===qKeyDigits) score = 76;        // 數字段混淆後相同
+      else if(qKeyDigits.length>=3 && pKeyDigits.includes(qKeyDigits)) score = 70;
+      else if(qKeyDigits.length>=3 && qKeyDigits.includes(pKeyDigits) && pKeyDigits.length>=3) score = 68;
       else {
-        const core = qn.length>4 ? qn.slice(0,-1) : qn;            // 去尾字
-        if(core.length>=3 && p.includes(core)) score = 62;
+        const core = qKey.length>4 ? qKey.slice(0,-1) : qKey;
+        if(core.length>=3 && pKey.includes(core)) score = 60;
         else {
-          const core2 = qn.length>4 ? qn.slice(1) : qn;           // 去首字
-          if(core2.length>=3 && p.includes(core2)) score = 60;
+          const core2 = qKey.length>4 ? qKey.slice(1) : qKey;
+          if(core2.length>=3 && pKey.includes(core2)) score = 58;
         }
       }
     }
@@ -1035,6 +1091,8 @@ function startV(dir){
           const matches = fuzzyMatch(best, dir);
           if(matches.length){
             const box = document.getElementById(D?'sugI':'sugO');
+            // 隱藏單一車牌確認框，改顯示候選清單
+            document.getElementById(D?'pdI':'pdO').style.display = 'none';
             // 確保手動分頁的候選框可見
             setM(dir,'m');
             if(D) document.getElementById('pI').value=best; else document.getElementById('pO').value=best;
@@ -1103,95 +1161,17 @@ function xPlate(raw){
 // ═══ OCR ════════════════════════════════════════════
 async function capImg(inp, dir){
   const f = inp.files[0]; if(!f) return;
-  const pv = document.getElementById('pv'+(dir==='i'?'I':'O'));
-  pv.src = URL.createObjectURL(f); pv.style.display='block';
-  await runOCR(f, dir);
-  inp.value='';
-}
-
-// 影像預處理：放大、灰階、增強對比、二值化 → 提升 OCR 準確度
-async function preprocessImage(file){
-  return new Promise((resolve)=>{
-    const img = new Image();
-    img.onload = ()=>{
-      const targetW = Math.min(1600, Math.max(800, img.width));
-      const scale = targetW / img.width;
-      const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
-      const cv = document.createElement('canvas');
-      cv.width=w; cv.height=h;
-      const ctx = cv.getContext('2d');
-      ctx.drawImage(img,0,0,w,h);
-      const imgData = ctx.getImageData(0,0,w,h);
-      const d = imgData.data;
-      // 灰階 + 對比增強
-      let sum=0;
-      for(let i=0;i<d.length;i+=4){
-        const g = 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-        d[i]=d[i+1]=d[i+2]=g; sum+=g;
-      }
-      const mean = sum/(d.length/4);
-      // 以平均值為閾值做二值化（增強對比）
-      for(let i=0;i<d.length;i+=4){
-        const contrast = 1.4;
-        let v = (d[i]-mean)*contrast + mean;
-        v = v<0?0:v>255?255:v;
-        d[i]=d[i+1]=d[i+2]=v;
-      }
-      ctx.putImageData(imgData,0,0);
-      cv.toBlob(b=>resolve(b||file), 'image/png');
-    };
-    img.onerror = ()=>resolve(file);
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-async function runOCR(f, dir){
-  const ocrBox = document.getElementById('ocrBox');
-  if(ocrBox) ocrBox.style.display='block';
-  const sm=m=>{ const el=document.getElementById('ocrMsg'); if(el) el.textContent=m; };
-  const sb=p=>{ const el=document.getElementById('ocrBar'); if(el) el.style.width=p+'%'; };
   const D = dir==='i';
-  try{
-    if(!G.ocrWorker){
-      sm('加載 OCR 引擎（首次約10秒）...');sb(5);
-      G.ocrWorker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text'){sb(Math.round(m.progress*100));sm('識別中 '+Math.round(m.progress*100)+'%...');}}});
-    }
-    // 車牌專用參數：單行、白名單
-    await G.ocrWorker.setParameters({
-      tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-      tessedit_pageseg_mode:'7'  // 單行文字
-    });
-    sm('影像處理中...');sb(15);
-    const proc_img = await preprocessImage(f);
-    sm('識別中...');sb(30);
-    const{data:{text}}=await G.ocrWorker.recognize(proc_img);sb(100);
-    const raw = (text||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-    const plate=xPlate(text);
-    setTimeout(()=>{const b=document.getElementById('ocrBox');if(b)b.style.display='none';},600);
-
-    // 用識別結果做模糊比對（即使 OCR 不準也能找到候選）
-    const guess = plate || raw;
-    if(guess && guess.length>=3){
-      const exact = (dir==='o') ? (G.cache[guess]||G.outCache[guess]) : G.cache[guess];
-      if(exact){
-        document.getElementById(D?'pI':'pO').value=guess;
-        showT('OCR：'+guess); proc(dir,guess,'cam'); return;
-      }
-      const matches = fuzzyMatch(guess, dir);
-      if(matches.length){
-        setM(dir,'m');
-        document.getElementById(D?'pI':'pO').value=guess;
-        const box = document.getElementById(D?'sugI':'sugO');
-        box.innerHTML = '<div class="sug-hd">拍照識別「'+guess+'」，相近車輛請點選：</div>' + matches.slice(0,8).map(r=>sugItemHtml(r,dir)).join('');
-        showT('請從清單選擇正確車輛');
-        return;
-      }
-    }
-    // 完全無候選 → 提示手動，並把識別結果填入方便修正
-    setM(dir,'m');
-    document.getElementById(D?'pI':'pO').value = guess || '';
-    showT('未能識別，請手動輸入或修正',false);
-  }catch(e){const b=document.getElementById('ocrBox');if(b)b.style.display='none';showT('OCR 出錯，請手動輸入',false);}
+  const pv = document.getElementById(D?'pvI':'pvO');
+  pv.src = URL.createObjectURL(f); pv.style.display='block';
+  inp.value='';
+  // 顯示照片下方的輸入框，讓使用者看著照片打車牌
+  const camInp = document.getElementById(D?'camInpI':'camInpO');
+  if(camInp) camInp.style.display='block';
+  const sug = document.getElementById(D?'sugCI':'sugCO'); if(sug) sug.innerHTML='';
+  const pc = document.getElementById(D?'pCI':'pCO');
+  if(pc){ pc.value=''; setTimeout(()=>pc.focus(), 200); }
+  showT('請看照片輸入車牌');
 }
 
 // ═══ 臨時車輛登記 ════════════════════════════════════
