@@ -182,6 +182,15 @@ tr:hover td{background:var(--blue-l)}
 .sug-hd{font-size:12px;color:var(--t3);font-weight:600;margin:4px 0 8px;padding-left:2px}
 .temp-btn-row{margin-top:12px;padding-top:12px;border-top:1px dashed var(--brd)}
 
+/* ── SEGMENT SUBTOTALS ── */
+.seg-hd{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px;letter-spacing:.3px}
+.seg-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.seg-name{font-size:13px;font-weight:600;color:var(--navy);width:96px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.seg-bar-wrap{flex:1;height:12px;background:var(--surf);border:1px solid var(--brd);border-radius:6px;overflow:hidden;min-width:30px}
+.seg-bar{height:100%;background:var(--green);border-radius:6px;transition:width .6s}
+.seg-stat{font-size:11.5px;color:var(--t2);flex-shrink:0;min-width:118px;text-align:right;font-variant-numeric:tabular-nums}
+.seg-walk{font-size:12px;color:var(--purple);background:var(--purple-l);border:1px solid #C4A9E0;border-radius:var(--r);padding:7px 11px;margin-top:6px}
+
 @media(max-width:380px){.sn{font-size:19px}.sl{font-size:9px}.tb{padding:0 11px;font-size:12px}}
 </style>
 </head>
@@ -279,6 +288,12 @@ tr:hover td{background:var(--blue-l)}
       </div>
       <p id="lastSync" style="font-size:11px;color:var(--t3);margin-top:6px">尚未同步</p>
     </div>
+  </div>
+
+  <!-- 時段小計 -->
+  <div class="card">
+    <div class="ch"><span class="ct">時段小計</span></div>
+    <div id="segBox" style="padding:12px 14px"><div style="text-align:center;font-size:12px;color:var(--t3)">同步後顯示</div></div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
@@ -531,6 +546,7 @@ tr:hover td{background:var(--blue-l)}
 const G = {
   url: localStorage.getItem('km_url') || 'https://kongmeng.kokpiau.workers.dev/',
   roster: [],          // loaded from Sheets
+  overview: null,      // 時段小計
   cache: {},           // plate→record map (normalized)
   voice: {
     i: { active:false, rec:null, lang:'ms-MY' },
@@ -615,8 +631,11 @@ async function doSync(){
     G.roster = data.data;
     G.cache = {};
     G.roster.forEach(r => { G.cache[norm(r.plate)] = r; });
+    // 另外取得概覽（含時段小計）
+    try { G.overview = await api({ action:'getOverview' }); } catch(e){ G.overview = null; }
     updDash();
-    setSyncBar('ok', '已同步 · ' + G.roster.length + ' 輛 · ' + new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+    const vehCount = G.roster.filter(r=>r.hasPlate).length;
+    setSyncBar('ok', '已同步 · ' + vehCount + ' 輛 · ' + new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
     document.getElementById('lastSync').textContent = '上次同步：' + new Date().toLocaleTimeString('zh-TW');
     rList(); rInF();
   } catch(e){
@@ -657,7 +676,9 @@ async function apiCheckOut(plate, method){
 
 // ═══ DASHBOARD ══════════════════════════════════════
 function updDash(){
-  const r = G.roster;
+  const all = G.roster;
+  const r = all.filter(x=>x.hasPlate);      // 只算有車牌的車輛
+  const walkers = all.filter(x=>!x.hasPlate); // 步行/跟服務
   const arr = r.filter(x=>x.status==='入班').length;
   const left = r.filter(x=>x.status==='出班').length;
   const pend = r.filter(x=>x.status==='待入班').length;
@@ -670,25 +691,64 @@ function updDash(){
   document.getElementById('pctBar').textContent = pct+'%';
   document.getElementById('pctLbl').textContent = (arr+left)+' / '+r.length;
 
-  // Recent arrived
-  const arrived = r.filter(x=>x.status==='入班'||x.status==='出班').sort((a,b)=>(b.inTime||'').localeCompare(a.inTime||''));
+  // 時段小計
+  renderSegments();
+
+  // Recent arrived（含步行報到）
+  const arrived = all.filter(x=>x.status==='入班'||x.status==='出班').sort((a,b)=>(b.inTime||'').localeCompare(a.inTime||''));
   document.getElementById('recAct').innerHTML = arrived.slice(0,6).map(x=>`
     <div style="display:flex;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--brd)">
-      <span style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;background:var(--surf);padding:2px 6px;border-radius:4px;color:var(--navy)">${x.plateFmt||x.plate}</span>
-      <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.driver}</span>
+      <span style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;background:var(--surf);padding:2px 6px;border-radius:4px;color:var(--navy)">${x.hasPlate?(x.plateFmt||x.plate):'🚶'}</span>
+      <span style="font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.driver}</span>
       <span class="badge ${x.status==='入班'?'b-ok':'b-i'}">${x.status}</span>
     </div>`).join('') || '<div style="padding:1rem;text-align:center;font-size:12px;color:var(--t3)">暫無到達記錄</div>';
 
-  // Pending
+  // Pending（只列有車牌的車）
   const pending = r.filter(x=>x.status==='待入班');
   document.getElementById('pendCnt').textContent = pending.length+'輛';
   document.getElementById('pendList').innerHTML = pending.slice(0,8).map(x=>`
     <div style="display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--brd)">
-      <span style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:var(--navy)">${x.plateFmt||x.plate}</span>
-      <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.driver}</span>
-      <span style="font-size:10px;color:var(--t3)">${x.group}</span>
+      <span style="font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:var(--navy)">${x.plateFmt||x.plate}</span>
+      <span style="font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.driver}</span>
+      <span style="font-size:11px;color:var(--t3)">${x.group}</span>
     </div>`).join('') + (pending.length>8?`<div style="padding:7px 12px;font-size:11px;color:var(--t3)">還有${pending.length-8}輛...</div>`:'')
     || '<div style="padding:1rem;text-align:center;font-size:12px;color:var(--green)">🎉 全部已到達！</div>';
+}
+
+// 時段小計渲染
+function renderSegments(){
+  const box = document.getElementById('segBox');
+  if(!box) return;
+  const ov = G.overview;
+  if(!ov || !ov.ok){ box.innerHTML=''; return; }
+  const segRow = (s, type)=>{
+    if(type==='in'){
+      const donePct = s.total ? Math.round(s.arrived/s.total*100) : 0;
+      return `<div class="seg-row">
+        <div class="seg-name">${s.seg}</div>
+        <div class="seg-bar-wrap"><div class="seg-bar" style="width:${donePct}%"></div></div>
+        <div class="seg-stat"><b>${s.total}</b>輛 · <span style="color:var(--green)">入${s.arrived}</span> / <span style="color:var(--amber)">待${s.pending}</span></div>
+      </div>`;
+    } else {
+      const donePct = s.total ? Math.round(s.left/s.total*100) : 0;
+      return `<div class="seg-row">
+        <div class="seg-name">${s.seg}</div>
+        <div class="seg-bar-wrap"><div class="seg-bar" style="width:${donePct}%;background:var(--blue)"></div></div>
+        <div class="seg-stat"><b>${s.total}</b>輛 · <span style="color:var(--blue)">出${s.left}</span> / <span style="color:var(--t3)">未${s.notLeft}</span></div>
+      </div>`;
+    }
+  };
+  let html = '';
+  if(ov.inSegments && ov.inSegments.length){
+    html += '<div class="seg-hd">入班時段</div>' + ov.inSegments.map(s=>segRow(s,'in')).join('');
+  }
+  if(ov.walkers){
+    html += `<div class="seg-walk">🚶 步行 / 跟服務：${ov.walkers} 人（不計入車輛）</div>`;
+  }
+  if(ov.outSegments && ov.outSegments.length){
+    html += '<div class="seg-hd" style="margin-top:12px">出班時段</div>' + ov.outSegments.map(s=>segRow(s,'out')).join('');
+  }
+  box.innerHTML = html || '<div style="padding:1rem;text-align:center;font-size:12px;color:var(--t3)">無時段資料</div>';
 }
 
 // ═══ AUTO REFRESH ════════════════════════════════════
@@ -860,16 +920,33 @@ function rList(){
   const bc = {入班:'b-ok',出班:'b-i',待入班:'b-p'};
   tb.innerHTML = data.length ? data.map(r=>{
     const tempTag = (r.note&&r.note.includes('臨時車牌')) ? ' <span style="display:inline-block;background:var(--amber-l);color:#6B4710;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle">臨時</span>' : '';
+    const plateCell = r.hasPlate ? (r.plateFmt||r.plate) : '<span style="color:var(--purple)">🚶 步行</span>';
+    // 步行者待入班時顯示「報到」按鈕
+    const statusCell = (!r.hasPlate && r.status==='待入班')
+      ? `<button class="btn btn-sm btn-g" style="padding:3px 9px;font-size:11px" onclick="walkerCheckIn(${r.row},'${(r.driver||'').replace(/'/g,'')}')">報到</button>`
+      : `<span class="badge ${bc[r.status]||'b-p'}">${r.status}</span>`;
     return `<tr>
-    <td class="tdp" title="${r.note||''}">${r.plateFmt||r.plate}${tempTag}</td>
+    <td class="tdp" title="${r.note||''}">${plateCell}${tempTag}</td>
     <td title="${r.phone||''}">${r.driver}</td>
     <td>${r.group}</td>
     <td style="text-align:center">${r.pax}</td>
-    <td><span class="badge ${bc[r.status]||'b-p'}">${r.status}</span></td>
+    <td>${statusCell}</td>
     <td style="font-family:monospace;font-size:11px;color:var(--t3)">${r.inTime||r.outTime||'—'}</td>
   </tr>`;}).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:2rem">暫無數據</td></tr>';
   document.getElementById('sumN').textContent = data.length;
   document.getElementById('sumP').textContent = data.reduce((s,r)=>s+(r.pax||0),0);
+}
+
+// 步行者報到（用行號）
+async function walkerCheckIn(row, driver){
+  if(!confirm('確認 '+driver+' 步行報到？')) return;
+  showUpd('記錄報到中...');
+  try {
+    const d = await api({ action:'checkInRow', row:String(row), method:'walk' });
+    hideUpd();
+    if(d.ok){ showOk('🚶', driver, '步行報到', (d.inTime||'')+' 入班'); await doSync(); }
+    else showT(d.error||'報到失敗', false);
+  } catch(e){ hideUpd(); showT('網絡錯誤：'+e.message,false); }
 }
 
 function rInF(){
