@@ -329,9 +329,8 @@ tr:hover td{background:var(--blue-l)}
       <!-- VOICE -->
       <div class="ms on" id="si-v">
         <div class="lang-row" id="lgI">
-          <button class="lb on" onclick="setL('i','ms-MY',this)">馬來語</button>
+          <button class="lb on" onclick="setL('i','zh-TW',this)">中文</button>
           <button class="lb" onclick="setL('i','en-US',this)">English</button>
-          <button class="lb" onclick="setL('i','zh-TW',this)">中文</button>
         </div>
         <div style="background:var(--purple-l);border:1px solid #C4A9E0;border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--purple)">
           🗣 說出車牌：<b>V D P 3 0 7 4</b>、<b>W K X 7 8 1 1</b>、<b>Whiskey Foxtrot Tango 4 7 8 9</b>
@@ -411,9 +410,8 @@ tr:hover td{background:var(--blue-l)}
       </div>
       <div class="ms on" id="so-v">
         <div class="lang-row" id="lgO">
-          <button class="lb on" onclick="setL('o','ms-MY',this)">馬來語</button>
+          <button class="lb on" onclick="setL('o','zh-TW',this)">中文</button>
           <button class="lb" onclick="setL('o','en-US',this)">English</button>
-          <button class="lb" onclick="setL('o','zh-TW',this)">中文</button>
         </div>
         <div class="mic-wrap">
           <button class="mic-btn" id="micO" onclick="togV('o')">
@@ -546,11 +544,13 @@ tr:hover td{background:var(--blue-l)}
 const G = {
   url: localStorage.getItem('km_url') || 'https://kongmeng.kokpiau.workers.dev/',
   roster: [],          // loaded from Sheets
+  outRoster: [],       // 出班名單
+  outCache: {},        // 出班 plate→record
   overview: null,      // 時段小計
   cache: {},           // plate→record map (normalized)
   voice: {
-    i: { active:false, rec:null, lang:'ms-MY' },
-    o: { active:false, rec:null, lang:'ms-MY' }
+    i: { active:false, rec:null, lang:'zh-TW' },
+    o: { active:false, rec:null, lang:'zh-TW' }
   },
   ocrWorker: null,
   filt: 'all',
@@ -633,6 +633,8 @@ async function doSync(){
     G.roster.forEach(r => { G.cache[norm(r.plate)] = r; });
     // 另外取得概覽（含時段小計）
     try { G.overview = await api({ action:'getOverview' }); } catch(e){ G.overview = null; }
+    // 取得出班名單（給出班模糊比對用）
+    try { const od = await api({ action:'getOutRoster' }); G.outRoster = (od&&od.ok)?od.data:[]; G.outCache={}; G.outRoster.forEach(r=>{ if(r.plate) G.outCache[r.plate]=r; }); } catch(e){ G.outRoster=[]; G.outCache={}; }
     updDash();
     const vehCount = G.roster.filter(r=>r.hasPlate).length;
     setSyncBar('ok', '已同步 · ' + vehCount + ' 輛 · ' + new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
@@ -766,31 +768,44 @@ function liveSearch(dir){
   const box = document.getElementById(dir==='i'?'sugI':'sugO');
   const q = norm(inp.value);
   if(q.length < 2){ box.innerHTML=''; return; }
-  const matches = fuzzyMatch(q);
+  const matches = fuzzyMatch(q, dir);
   if(!matches.length){ box.innerHTML='<div class="sug-hd">沒有符合的車輛</div>'; return; }
   box.innerHTML = '<div class="sug-hd">符合車輛（點選確認）：</div>' + matches.slice(0,8).map(r=>sugItemHtml(r,dir)).join('');
 }
 
 // 模糊比對：車牌任何部分包含查詢字串，或數字段相符
-function fuzzyMatch(q){
+function fuzzyMatch(q, dir){
   if(!q) return [];
   const qn = norm(q);
+  // 出班用出班名單，入班用入班名單；出班也含入班名單作後備
+  let pool = G.roster;
+  if(dir==='o'){
+    pool = (G.outRoster && G.outRoster.length) ? G.outRoster : G.roster;
+  }
   const scored = [];
-  G.roster.forEach(r=>{
+  const seen = {};
+  pool.forEach(r=>{
+    if(!r.plate || seen[r.plate]) return;
+    seen[r.plate]=1;
     const p = r.plate;
     let score = 0;
     if(p === qn) score = 100;
-    else if(p.startsWith(qn)) score = 90;
-    else if(p.includes(qn)) score = 80;
+    else if(p.startsWith(qn)) score = 92;
+    else if(p.includes(qn)) score = 85;
+    else if(qn.includes(p)) score = 84;        // 識別多了字（如 C2811 含於 VNC2811 反向）
     else {
-      // 比對純數字段（解決 E/1 混淆）
       const qDigits = qn.replace(/[^0-9]/g,'');
       const pDigits = p.replace(/[^0-9]/g,'');
-      if(qDigits.length>=3 && pDigits.includes(qDigits)) score = 70;
+      if(qDigits.length>=3 && pDigits===qDigits) score = 78;       // 數字段完全相同（解決 E/1 混淆）
+      else if(qDigits.length>=3 && pDigits.includes(qDigits)) score = 72;
+      else if(qDigits.length>=3 && qDigits.includes(pDigits) && pDigits.length>=3) score = 70;
       else {
-        // 容錯：去掉首尾各一字元後比對（E↔1 等尾字混淆）
-        const core = qn.length>4 ? qn.slice(0,-1) : qn;
-        if(core.length>=3 && p.includes(core)) score = 60;
+        const core = qn.length>4 ? qn.slice(0,-1) : qn;            // 去尾字
+        if(core.length>=3 && p.includes(core)) score = 62;
+        else {
+          const core2 = qn.length>4 ? qn.slice(1) : qn;           // 去首字
+          if(core2.length>=3 && p.includes(core2)) score = 60;
+        }
       }
     }
     if(score>0) scored.push({r, score});
@@ -822,10 +837,11 @@ function lkup(dir){
   const raw = (dir==='i'?document.getElementById('pI'):document.getElementById('pO')).value;
   const p = norm(raw);
   if(!p){showT('請輸入車牌',false);return;}
-  // 完全相符直接處理
-  if(G.cache[p]){ proc(dir,p,'manual'); return; }
+  // 完全相符直接處理（出班同時查入班+出班名單）
+  const exact = (dir==='o') ? (G.cache[p]||G.outCache[p]) : G.cache[p];
+  if(exact){ proc(dir,p,'manual'); return; }
   // 否則列出模糊候選
-  const matches = fuzzyMatch(p);
+  const matches = fuzzyMatch(p, dir);
   if(matches.length===1){ proc(dir, matches[0].plate, 'manual'); return; }
   if(matches.length>1){
     const box = document.getElementById(dir==='i'?'sugI':'sugO');
@@ -839,7 +855,7 @@ function editP(dir){ const c=prompt('修正車牌：',document.getElementById(di
 
 function proc(dir, plate, method){
   const resEl = document.getElementById(dir==='i'?'resI':'resO');
-  const rec = G.cache[plate];
+  const rec = (dir==='o') ? (G.cache[plate]||G.outCache[plate]) : G.cache[plate];
   resEl.style.display = 'block';
 
   if(dir==='i'){
@@ -871,17 +887,17 @@ function proc(dir, plate, method){
   } else {
     if(!rec){
       resEl.innerHTML=`<div class="platebox">${plate}</div><p style="font-size:13px;color:var(--t3)">此車牌不在名單中</p>`;
-    } else if(rec.status!=='入班'){
+    } else if(rec.status==='出班'){
       resEl.innerHTML=`<div class="platebox">${rec.plateFmt}</div>
         <div class="rr"><span class="rl">司機</span><span class="rv">${rec.driver}</span></div>
-        <div class="rr"><span class="rl">狀態</span><span class="badge b-p">${rec.status}</span></div>
+        <div class="rr"><span class="rl">狀態</span><span class="badge b-i">已出班 · ${rec.outTime||''}</span></div>
         <button class="btn btn-r btn-fw" style="margin-top:12px" onclick="doCheckOut('${plate}','${method}')">仍然記錄出班</button>`;
     } else {
       resEl.innerHTML=`<div class="platebox">${rec.plateFmt}</div>
         <div class="rr"><span class="rl">司機</span><span class="rv"><b>${rec.driver}</b></span></div>
         <div class="rr"><span class="rl">理經</span><span class="rv">${rec.group}</span></div>
         <div class="rr"><span class="rl">人數</span><span class="rv">${rec.pax} 人</span></div>
-        <div class="rr"><span class="rl">入班</span><span class="rv">${rec.inTime}</span></div>
+        ${rec.inTime?`<div class="rr"><span class="rl">入班</span><span class="rv">${rec.inTime}</span></div>`:''}
         <button class="btn btn-r btn-fw" style="margin-top:12px" onclick="doCheckOut('${plate}','${method}')">
           ✓ 確認出班 — 寫入 Google Sheets
         </button>`;
@@ -1011,11 +1027,12 @@ function startV(dir){
         if(D) document.getElementById('pI').value=best; else document.getElementById('pO').value=best;
         document.getElementById(D?'trI':'trO').textContent = '✅ ' + fin;
         // 完全相符 → 直接處理；否則列出模糊候選
-        if(G.cache[best]){
+        const exactRec = (dir==='o') ? (G.cache[best]||G.outCache[best]) : G.cache[best];
+        if(exactRec){
           showT('語音識別：'+best);
           setTimeout(()=>proc(dir,best,'voice'), 500);
         } else {
-          const matches = fuzzyMatch(best);
+          const matches = fuzzyMatch(best, dir);
           if(matches.length){
             const box = document.getElementById(D?'sugI':'sugO');
             // 確保手動分頁的候選框可見
@@ -1088,36 +1105,93 @@ async function capImg(inp, dir){
   const f = inp.files[0]; if(!f) return;
   const pv = document.getElementById('pv'+(dir==='i'?'I':'O'));
   pv.src = URL.createObjectURL(f); pv.style.display='block';
-  if(dir==='i') await runOCR(f, dir);
-  else { showT('請手動確認車牌後查詢'); const p = await quickOCR(f); if(p){ document.getElementById('pO').value=p; proc('o',p,'cam'); } }
+  await runOCR(f, dir);
   inp.value='';
 }
 
+// 影像預處理：放大、灰階、增強對比、二值化 → 提升 OCR 準確度
+async function preprocessImage(file){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const targetW = Math.min(1600, Math.max(800, img.width));
+      const scale = targetW / img.width;
+      const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+      const cv = document.createElement('canvas');
+      cv.width=w; cv.height=h;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      const imgData = ctx.getImageData(0,0,w,h);
+      const d = imgData.data;
+      // 灰階 + 對比增強
+      let sum=0;
+      for(let i=0;i<d.length;i+=4){
+        const g = 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        d[i]=d[i+1]=d[i+2]=g; sum+=g;
+      }
+      const mean = sum/(d.length/4);
+      // 以平均值為閾值做二值化（增強對比）
+      for(let i=0;i<d.length;i+=4){
+        const contrast = 1.4;
+        let v = (d[i]-mean)*contrast + mean;
+        v = v<0?0:v>255?255:v;
+        d[i]=d[i+1]=d[i+2]=v;
+      }
+      ctx.putImageData(imgData,0,0);
+      cv.toBlob(b=>resolve(b||file), 'image/png');
+    };
+    img.onerror = ()=>resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 async function runOCR(f, dir){
-  document.getElementById('ocrBox').style.display='block';
-  const sm=m=>document.getElementById('ocrMsg').textContent=m;
-  const sb=p=>document.getElementById('ocrBar').style.width=p+'%';
+  const ocrBox = document.getElementById('ocrBox');
+  if(ocrBox) ocrBox.style.display='block';
+  const sm=m=>{ const el=document.getElementById('ocrMsg'); if(el) el.textContent=m; };
+  const sb=p=>{ const el=document.getElementById('ocrBar'); if(el) el.style.width=p+'%'; };
+  const D = dir==='i';
   try{
     if(!G.ocrWorker){
       sm('加載 OCR 引擎（首次約10秒）...');sb(5);
       G.ocrWorker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text'){sb(Math.round(m.progress*100));sm('識別中 '+Math.round(m.progress*100)+'%...');}}});
-      await G.ocrWorker.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '});
     }
-    sm('識別中...');sb(20);
-    const{data:{text}}=await G.ocrWorker.recognize(f);sb(100);
+    // 車牌專用參數：單行、白名單
+    await G.ocrWorker.setParameters({
+      tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+      tessedit_pageseg_mode:'7'  // 單行文字
+    });
+    sm('影像處理中...');sb(15);
+    const proc_img = await preprocessImage(f);
+    sm('識別中...');sb(30);
+    const{data:{text}}=await G.ocrWorker.recognize(proc_img);sb(100);
+    const raw = (text||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
     const plate=xPlate(text);
-    setTimeout(()=>document.getElementById('ocrBox').style.display='none',600);
-    if(plate){ document.getElementById('pI').value=plate; document.getElementById('pbI').textContent=plate; document.getElementById('pdI').style.display='block'; showT('OCR：'+plate); proc(dir,plate,'cam'); }
-    else showT('未能識別，請手動輸入',false);
-  }catch(e){document.getElementById('ocrBox').style.display='none';showT('OCR 出錯',false);}
-}
+    setTimeout(()=>{const b=document.getElementById('ocrBox');if(b)b.style.display='none';},600);
 
-async function quickOCR(f){
-  try{
-    if(!G.ocrWorker){G.ocrWorker=await Tesseract.createWorker('eng',1,{});await G.ocrWorker.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '});}
-    const{data:{text}}=await G.ocrWorker.recognize(f);
-    return xPlate(text);
-  }catch(e){return null;}
+    // 用識別結果做模糊比對（即使 OCR 不準也能找到候選）
+    const guess = plate || raw;
+    if(guess && guess.length>=3){
+      const exact = (dir==='o') ? (G.cache[guess]||G.outCache[guess]) : G.cache[guess];
+      if(exact){
+        document.getElementById(D?'pI':'pO').value=guess;
+        showT('OCR：'+guess); proc(dir,guess,'cam'); return;
+      }
+      const matches = fuzzyMatch(guess, dir);
+      if(matches.length){
+        setM(dir,'m');
+        document.getElementById(D?'pI':'pO').value=guess;
+        const box = document.getElementById(D?'sugI':'sugO');
+        box.innerHTML = '<div class="sug-hd">拍照識別「'+guess+'」，相近車輛請點選：</div>' + matches.slice(0,8).map(r=>sugItemHtml(r,dir)).join('');
+        showT('請從清單選擇正確車輛');
+        return;
+      }
+    }
+    // 完全無候選 → 提示手動，並把識別結果填入方便修正
+    setM(dir,'m');
+    document.getElementById(D?'pI':'pO').value = guess || '';
+    showT('未能識別，請手動輸入或修正',false);
+  }catch(e){const b=document.getElementById('ocrBox');if(b)b.style.display='none';showT('OCR 出錯，請手動輸入',false);}
 }
 
 // ═══ 臨時車輛登記 ════════════════════════════════════
