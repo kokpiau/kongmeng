@@ -227,6 +227,45 @@ tr:hover td{background:var(--blue-l)}
 
 <div id="toast"></div>
 
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="position:fixed;inset:0;background:#0F2044;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem">
+  <div style="width:72px;height:72px;border-radius:14px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--navy);margin-bottom:18px">孔孟</div>
+  <div style="color:#fff;font-size:20px;font-weight:600;margin-bottom:4px">英雄山莊交通管理</div>
+  <div style="color:rgba(255,255,255,.5);font-size:12px;margin-bottom:28px">請登入以使用系統</div>
+  <div style="width:100%;max-width:340px;background:#fff;border-radius:14px;padding:1.5rem">
+    <div class="ig">
+      <div class="il">帳號</div>
+      <input class="inp" id="loginUser" placeholder="username" autocomplete="username" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="ig">
+      <div class="il">密碼</div>
+      <input class="inp" id="loginPass" type="password" placeholder="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-p btn-fw" style="margin-top:6px" onclick="doLogin()" id="loginBtn">登入</button>
+    <div id="loginMsg" style="margin-top:10px;font-size:12px;color:var(--red);text-align:center;min-height:16px"></div>
+  </div>
+</div>
+
+<!-- 新增車輛 MODAL -->
+<div class="ok-overlay" id="addVehOverlay" style="align-items:flex-start">
+  <div class="ok-box" style="margin-top:60px;text-align:left;min-width:300px;max-width:92vw;max-height:85vh;overflow-y:auto">
+    <div style="font-size:17px;font-weight:700;color:var(--navy);margin-bottom:4px">➕ 新增車輛</div>
+    <div style="font-size:12.5px;color:var(--t3);margin-bottom:14px">新增不在名單中的車輛，將寫入「入班」與「出班」兩個 sheet。</div>
+    <div class="ig"><div class="il">車牌 <span style="color:var(--red)">*</span></div>
+      <input class="inp inp-pl" id="avPlate" placeholder="車牌號碼" autocomplete="off" oninput="this.value=this.value.toUpperCase()"></div>
+    <div class="ig"><div class="il">司機姓名 <span style="color:var(--red)">*</span></div>
+      <input class="inp" id="avDriver" placeholder="司機姓名" autocomplete="off"></div>
+    <div class="ig"><div class="il">聯絡電話 <span style="color:var(--red)">*</span></div>
+      <input class="inp" id="avPhone" placeholder="例如 012-3456789" autocomplete="off" inputmode="tel"></div>
+    <div class="ig"><div class="il">理經代號 <span style="color:var(--red)">*</span></div>
+      <input class="inp" id="avGroup" placeholder="例如 三郭、印許" autocomplete="off"></div>
+    <div class="ig"><div class="il">地區 <span style="color:var(--red)">*</span></div>
+      <input class="inp" id="avRegion" placeholder="例如 美和家、蕉賴" autocomplete="off"></div>
+    <button class="btn btn-g btn-fw" style="margin-top:8px" onclick="confirmAddVeh()">✓ 新增到名單</button>
+    <button class="btn btn-fw" style="margin-top:8px" onclick="closeAddVeh()">取消</button>
+  </div>
+</div>
+
 <!-- 臨時車輛 MODAL -->
 <div class="ok-overlay" id="tempOverlay" style="align-items:flex-start">
   <div class="ok-box" style="margin-top:80px;text-align:left;min-width:300px;max-width:92vw;max-height:80vh;overflow-y:auto">
@@ -262,6 +301,7 @@ tr:hover td{background:var(--blue-l)}
     </div>
   </div>
   <div class="t-clk" id="clk"></div>
+  <button id="logoutBtn" onclick="doLogout()" style="display:none;margin-left:8px;background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">登出</button>
 </div>
 
 <!-- SYNC STATUS BAR -->
@@ -396,11 +436,16 @@ tr:hover td{background:var(--blue-l)}
   </div>
   <div class="rbox" id="resI"></div>
 
-  <!-- 臨時車輛登記 -->
+  <!-- 臨時車輛 / 新增車輛 -->
   <div class="temp-btn-row">
-    <button class="btn btn-fw" style="border-color:var(--amber);color:var(--amber)" onclick="openTemp()">
-      🚙 臨時車輛登記（換車）
-    </button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn" style="border-color:var(--amber);color:var(--amber);padding:10px 8px;font-size:12.5px" onclick="openTemp()">
+        🚙 臨時車輛<br>（換車）
+      </button>
+      <button class="btn" style="border-color:var(--blue);color:var(--blue);padding:10px 8px;font-size:12.5px" onclick="openAddVeh()">
+        ➕ 新增車輛<br>（不在名單）
+      </button>
+    </div>
   </div>
 </div>
 
@@ -578,12 +623,81 @@ const G = {
 };
 
 // ═══ BOOT ═══════════════════════════════════════════
+// ═══ LOGIN / LOGOUT ═══════════════════════════════════════
+const LOGIN_TTL_MS = 24 * 60 * 60 * 1000;  // 24 小時
+
+function isLoggedIn(){
+  try {
+    const raw = localStorage.getItem('km_auth');
+    if(!raw) return false;
+    const a = JSON.parse(raw);
+    if(!a || !a.user || !a.t) return false;
+    if(Date.now() - a.t > LOGIN_TTL_MS) return false;
+    return a.user;
+  } catch(e){ return false; }
+}
+
+function showLogin(){
+  document.getElementById('loginOverlay').style.display='flex';
+  document.getElementById('logoutBtn').style.display='none';
+  setTimeout(()=>{ const u=document.getElementById('loginUser'); if(u) u.focus(); }, 100);
+}
+function hideLogin(){
+  document.getElementById('loginOverlay').style.display='none';
+  document.getElementById('logoutBtn').style.display='inline-block';
+}
+
+async function doLogin(){
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const msg = document.getElementById('loginMsg');
+  const btn = document.getElementById('loginBtn');
+  if(!u || !p){ msg.textContent='請輸入帳號和密碼'; return; }
+  btn.disabled = true; btn.textContent = '登入中...';
+  msg.textContent = '';
+  try {
+    const r = await api({ action:'login', username:u, password:p });
+    if(r.ok){
+      localStorage.setItem('km_auth', JSON.stringify({ user:r.username||u, t:Date.now() }));
+      document.getElementById('loginPass').value='';
+      hideLogin();
+      bootApp();
+    } else {
+      msg.textContent = r.error || '登入失敗';
+    }
+  } catch(e){
+    msg.textContent = '連線失敗：'+e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '登入';
+  }
+}
+
+function doLogout(){
+  if(!confirm('確認登出？')) return;
+  localStorage.removeItem('km_auth');
+  // 停止自動同步
+  if(G.autoTimer){ clearInterval(G.autoTimer); G.autoTimer=null; }
+  // 停止語音
+  if(G.voice.i.active) stopV('i');
+  if(G.voice.o.active) stopV('o');
+  showLogin();
+}
+
+function bootApp(){
+  if(G.url){ doSync(); startAutoRefresh(); }
+  else { setSyncBar('warn','請先在「設置」填入 Web App URL'); }
+}
+
 (function boot(){
   tick(); setInterval(tick, 1000);
   if(G.url) document.getElementById('cfgUrl').value = G.url;
   document.getElementById('cfgInterval').value = G.interval;
-  if(G.url){ doSync(); startAutoRefresh(); }
-  else { setSyncBar('warn','請先在「設置」填入 Web App URL'); }
+  if(isLoggedIn()){
+    hideLogin();
+    bootApp();
+  } else {
+    showLogin();
+  }
 })();
 
 function tick(){
@@ -645,6 +759,8 @@ function api(params){
 
 async function doSync(){
   if(!G.url){ setSyncBar('warn','請在「設置」填入 Web App URL'); return; }
+  // 檢查登入是否過期
+  if(!isLoggedIn()){ showLogin(); return; }
   setSyncBar('spin','同步中...');
   try {
     const data = await api({ action:'getRoster' });
@@ -1263,6 +1379,39 @@ function openTemp(){
   document.getElementById('tempOverlay').classList.add('on');
 }
 function closeTemp(){ document.getElementById('tempOverlay').classList.remove('on'); }
+
+// ═══ 新增車輛 ════════════════════════════════════════════
+function openAddVeh(){
+  ['avPlate','avDriver','avPhone','avGroup','avRegion'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('addVehOverlay').classList.add('on');
+  setTimeout(()=>document.getElementById('avPlate').focus(), 100);
+}
+function closeAddVeh(){ document.getElementById('addVehOverlay').classList.remove('on'); }
+
+async function confirmAddVeh(){
+  const plate = norm(document.getElementById('avPlate').value);
+  const driver = document.getElementById('avDriver').value.trim();
+  const phone = document.getElementById('avPhone').value.trim();
+  const group = document.getElementById('avGroup').value.trim();
+  const region = document.getElementById('avRegion').value.trim();
+  if(!plate){ showT('請輸入車牌',false); return; }
+  if(!driver){ showT('請輸入司機姓名',false); return; }
+  if(!phone){ showT('請輸入電話',false); return; }
+  if(!group){ showT('請輸入理經代號',false); return; }
+  if(!region){ showT('請輸入地區',false); return; }
+  closeAddVeh();
+  showUpd('新增車輛中...');
+  try {
+    const data = await api({ action:'addVehicle', plate, driver, phone, group, region });
+    hideUpd();
+    if(data.ok){
+      showT('✅ 已新增 '+plate+' （'+driver+'）');
+      await doSync();
+    } else {
+      showT(data.error||'新增失敗', false);
+    }
+  } catch(e){ hideUpd(); showT('網絡錯誤：'+e.message,false); }
+}
 
 function tempSearchDriver(){
   const q = document.getElementById('tempDriver').value.trim().toLowerCase();
